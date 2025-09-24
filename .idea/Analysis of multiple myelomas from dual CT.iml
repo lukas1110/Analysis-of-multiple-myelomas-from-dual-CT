@@ -5,7 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.12 virtualenv at C:\Users\lukas\OneDrive - VUT\Plocha\Diplomová práca\Analysis of multiple myelomas from dual CT\.venv" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.12 virtualenv at C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Analysis of multiple myelomas from dual CT\.venv" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
