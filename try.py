@@ -1,4 +1,5 @@
 from load_image import load_nifti_image
+from create_features_dfs import *
 from visualization import *
 
 
@@ -12,11 +13,12 @@ ct_image = load_nifti_image(image_path)
 lesions_mask = load_nifti_image(lesions_mask_path)
 vertebrae_mask = load_nifti_image(vertebrae_mask_path)
 
+lesion_voxels = (vertebrae_mask == 22) & (lesions_mask > 0)
+# vertebra_voxels = (vertebrae_mask == 14) & (lesions_mask == 0)
 
 # show_individual_slices(ct_image)
 # show_slices_scroll(ct_image, axis=0, pause_time=0.01)
-# show_slices_scroll_with_mask(ct_image, lesions_mask, axis=0, pause_time=0.01)
+# show_slices_scroll_with_mask(ct_image, vertebra_voxels, axis=0, pause_time=0.01)
+show_slices_scroll_range_with_mask(ct_image, lesion_voxels, 0, 0.025, 200, 300)
 
-# single_vertebrae_mask = (spine_mask_data == 19)
-# show_slices_scroll_range_with_mask(ct_image, single_vertebrae_mask,
-#                                    0, 0.025, 200, 300)
+# create_features_dfs(ct_image, vertebrae_mask, lesions_mask)

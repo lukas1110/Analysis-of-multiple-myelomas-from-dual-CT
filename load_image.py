@@ -6,6 +6,7 @@ def load_nifti_image(path):
     Loads a NIfTI (.nii or .nii.gz) file and returns the image data as a NumPy array.
 
     Param: path (str): Path to the NIfTI file.
+
     Returns: data (numpy.ndarray): Image data from the file.
     """
     # Load the NIfTI file
