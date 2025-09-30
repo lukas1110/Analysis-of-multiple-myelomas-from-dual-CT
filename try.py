@@ -1,4 +1,4 @@
-from load_image import load_nifti_image
+from load_image import NiftiFile
 from create_features_dfs import create_features_dfs
 from visualization import *
 
@@ -9,9 +9,9 @@ lesions_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_0
 vertebrae_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\Spine_labels\myel_001_spine_seg_nnUNet_cor.nii.gz"
 
 # Load the images to numpy_array
-ct_image = load_nifti_image(image_path)
-lesions_mask = load_nifti_image(lesions_mask_path)
-vertebrae_mask = load_nifti_image(vertebrae_mask_path)
+ct_image = NiftiFile(image_path).get_image_data()
+lesions_mask = NiftiFile(lesions_mask_path).get_image_data()
+vertebrae_mask = NiftiFile(vertebrae_mask_path).get_image_data()
 
 # Vertebrae or lesions mask
 # lesion_voxels = (vertebrae_mask == 22) & (lesions_mask > 0)

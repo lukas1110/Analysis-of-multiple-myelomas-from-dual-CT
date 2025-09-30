@@ -1,18 +1,34 @@
 import nibabel as nib
+import numpy as np
 
 
-def load_nifti_image(path):
+class NiftiFile:
     """
-    Loads a NIfTI (.nii or .nii.gz) file and returns the image data as a NumPy array.
-
-    Param: path (str): Path to the NIfTI file.
-
-    Returns: data (numpy.ndarray): Image data from the file.
+    A utility class to load and work with NIfTI (.nii or .nii.gz) files.
+    Provides access to voxel data, header information and real-world coordinates in millimeters.
     """
-    # Load the NIfTI file
-    img = nib.load(path)
 
-    # Convert image object to NumPy array
-    data = img.get_fdata()
+    def __init__(self, path: str):
+        """
+        Initialize the NiftiFile instance by loading a NIfTI file.
 
-    return data
+        Param: path (str): Path to the NIfTI file.
+        """
+        self.path = path
+        self.img = nib.load(path)   # NIfTI object
+
+    def get_image_data(self) -> np.ndarray:
+        """
+        Return voxel intensities as a NumPy array.
+
+        Returns: numpy.ndarray: Image voxel data.
+        """
+        return self.img.get_fdata()   # voxel data as numpy array
+
+    def get_image_spacing(self) -> tuple:
+        """
+        Return voxel spacing (in mm) along each axis.
+
+        Returns: tuple: (x, y, z) in millimeters.
+        """
+        return tuple(self.img.header['pixdim'][1:4])
