@@ -12,19 +12,17 @@ def extract_intensity_features(data_array):
 
     Returns: dict with intensity features
     """
-
-    mean = np.mean(data_array)
-    std = np.std(data_array)
-    median = np.median(data_array)
-    min = np.min(data_array)
-    max = np.max(data_array)
-
+    mean = float(np.mean(data_array))
+    std = float(np.std(data_array))
+    median = float(np.median(data_array))
+    min_voxel = np.min(data_array)
+    max_voxel = np.max(data_array)
 
     p10 = np.percentile(data_array, 10)
     p25 = np.percentile(data_array, 25)
     p75 = np.percentile(data_array, 75)
     p90 = np.percentile(data_array, 90)
-    iqr = abs(p75 - p25)
+    iqr = abs(float(p75) - float(p25))
 
     sk = skew(data_array)
     kt = kurtosis(data_array)
@@ -34,32 +32,31 @@ def extract_intensity_features(data_array):
 
     hist, _ = np.histogram(data_array, bins=256, density=True)
     probs = hist / np.sum(hist)
-    H = scipy_entropy(probs + np.finfo(float).eps, base=2)
+    entropy = scipy_entropy(probs + np.finfo(float).eps, base=2)
     uni = np.sum(probs ** 2)
 
     return {
-        "mean": float(mean),
-        "std": float(std),
-        "median": float(median),
-        "min": float(min),
-        "max": float(max),
+        "mean": mean,
+        "std": std,
+        "median": median,
+        "min": float(min_voxel),
+        "max": float(max_voxel),
         "p10": float(p10),
         "p25": float(p25),
         "p75": float(p75),
         "p90": float(p90),
         "iqr": float(iqr),
-        "skewness": float(sk),
+        "skewness": sk,
         "kurtosis": float(kt),
         "rms": float(rms),
         "energy": float(energy),
         "mad": float(mad),
-        "entropy": float(H),
+        "entropy": float(entropy),
         "uniformity": float(uni)
     }
 
 
-def extract_glcm_features(region_mask, img_data, levels=32,
-                          distances=[1, 2, 3], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4]):
+def extract_glcm_features(region_mask, img_data, levels=32):
     """
     Compute GLCM texture features slice-by-slice for a given mask.
     Takes all axial slices that contain voxels from region_mask.
@@ -96,8 +93,8 @@ def extract_glcm_features(region_mask, img_data, levels=32,
 
         # compute GLCM for this slice
         glcm = graycomatrix(img_quantized,
-                            distances=distances,
-                            angles=angles,
+                            distances=[1, 2, 3],
+                            angles=[0, np.pi/4, np.pi/2, 3*np.pi/4],
                             levels=levels,
                             symmetric=True,
                             normed=True)
