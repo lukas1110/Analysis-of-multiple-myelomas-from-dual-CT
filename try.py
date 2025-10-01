@@ -1,5 +1,5 @@
 from load_image import NiftiFile
-from create_datasets import create_features_dfs
+from create_datasets import *
 from visualization import *
 
 
@@ -13,6 +13,14 @@ ct_img = NiftiFile(image_path)
 lesions_img = NiftiFile(lesions_mask_path)
 vertebrae_img = NiftiFile(vertebrae_mask_path)
 
+# Datasets
+# create_spine_features_dfs(ct_img, vertebrae_img, lesions_img)
+# create_vertebra_features_dfs(ct_img, vertebrae_img, lesions_img)
+create_individual_lesion_features_dfs(ct_img, vertebrae_img, lesions_img)
+
+
+
+# ----------------------------------------------------VISUALIZATION----------------------------------------------------
 # Load the images as numpy array
 # ct_image_data = ct_img.get_image_data()
 # lesions_mask_data = lesions_img.get_image_data()
@@ -27,6 +35,3 @@ vertebrae_img = NiftiFile(vertebrae_mask_path)
 # show_slices_scroll(ct_image_data, axis=0, pause_time=0.01)
 # show_slices_scroll_with_mask(ct_image_data, vertebra_voxels, axis=0, pause_time=0.01)
 # show_slices_scroll_range_with_mask(ct_image_data, vertebra_voxels, start=150, end=300)
-
-# Datasets
-# create_features_dfs(ct_img, lesions_img, vertebrae_img)
