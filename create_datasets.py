@@ -108,7 +108,7 @@ def create_vertebra_features_dfs(ct_img, vertebrae_img, lesions_img):
     df_lesions = pd.DataFrame(lesion_results)
 
     df_vertebrae.to_csv("vertebrae_features.csv", index=False)
-    df_lesions.to_csv("lesion_features.csv", index=False)
+    df_lesions.to_csv("lesions_features.csv", index=False)
 
 
 def create_individual_lesion_features_dfs(ct_img, vertebrae_img, lesions_img):
