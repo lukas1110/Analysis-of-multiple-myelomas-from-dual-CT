@@ -2,13 +2,14 @@ from extract_features import *
 import pandas as pd
 
 
+# Defining vertebra names mapping (25 vertebrae)
+vertebra_names = (
+    ["C" + str(i) for i in range(1, 8)] +      # C1–C7
+    ["T" + str(i) for i in range(1, 13)] +     # T1–T12
+    ["L" + str(i) for i in range(1, 6)]        # L1–L5
+)
+
 def create_features_dfs(ct_image, vertebrae_mask, lesions_mask):
-    # Defining vertebra names mapping (25 vertebrae)
-    vertebra_names = (
-        ["C" + str(i) for i in range(1, 8)] +      # C1–C7
-        ["T" + str(i) for i in range(1, 13)] +     # T1–T12
-        ["L" + str(i) for i in range(1, 6)]        # L1–L5
-    )
 
     vertebrae_results = []
     lesion_results = []
@@ -30,11 +31,11 @@ def create_features_dfs(ct_image, vertebrae_mask, lesions_mask):
             "n_lesions": n_lesions
         }
         # Compute intensity features for vertebra region
-        v_entry.update(compute_intensity_features(vertebra_voxels))
+        v_entry.update(extract_intensity_features(vertebra_voxels))
         # Compute texture features for vertebra region
-        v_entry.update(compute_glcm_features_slicewise((vertebrae_mask == v_label) & (lesions_mask == 0), ct_image))
+        v_entry.update(extract_glcm_features((vertebrae_mask == v_label) & (lesions_mask == 0), ct_image))
         # Compute shape features for vertebra region
-        v_entry.update(compute_shape_features((vertebrae_mask == v_label) & (lesions_mask == 0), spacing=(0.9, 0.9, 0.9)))
+        v_entry.update(extract_shape_features((vertebrae_mask == v_label) & (lesions_mask == 0), spacing=(0.9, 0.9, 0.9)))
 
         vertebrae_results.append(v_entry)
 
@@ -49,11 +50,11 @@ def create_features_dfs(ct_image, vertebrae_mask, lesions_mask):
                 "n_lesions": n_lesions
             }
             # Compute intensity features for lesions region
-            lesion_entry.update(compute_intensity_features(lesion_voxels))
+            lesion_entry.update(extract_intensity_features(lesion_voxels))
             # Compute texture features for lesions region
-            lesion_entry.update(compute_glcm_features_slicewise((vertebrae_mask == v_label) & (lesions_mask > 0), ct_image))
+            lesion_entry.update(extract_glcm_features((vertebrae_mask == v_label) & (lesions_mask > 0), ct_image))
             # Compute shape features for lesions region
-            lesion_entry.update(compute_shape_features((vertebrae_mask == v_label) & (lesions_mask > 0), spacing=(0.9, 0.9, 0.9)))
+            lesion_entry.update(extract_shape_features((vertebrae_mask == v_label) & (lesions_mask > 0), spacing=(0.9, 0.9, 0.9)))
 
             lesion_results.append(lesion_entry)
 

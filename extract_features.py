@@ -4,7 +4,7 @@ from scipy.stats import entropy as scipy_entropy
 import numpy as np
 
 
-def compute_intensity_features(data_array):
+def extract_intensity_features(data_array):
     """
     Compute first-order intensity (histogram) features.
 
@@ -58,8 +58,8 @@ def compute_intensity_features(data_array):
     }
 
 
-def compute_glcm_features_slicewise(region_mask, img_data, levels=32,
-                                    distances=[1, 2, 3], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4]):
+def extract_glcm_features(region_mask, img_data, levels=32,
+                          distances=[1, 2, 3], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4]):
     """
     Compute GLCM texture features slice-by-slice for a given mask.
     Takes all axial slices that contain voxels from region_mask.
@@ -111,7 +111,7 @@ def compute_glcm_features_slicewise(region_mask, img_data, levels=32,
     return averaged
 
 
-def compute_shape_features(region_mask, spacing=(0.9, 0.9, 0.9)):
+def extract_shape_features(region_mask, spacing=(0.9, 0.9, 0.9)):
     """
     Compute simple 3D shape features from binary mask.
 
