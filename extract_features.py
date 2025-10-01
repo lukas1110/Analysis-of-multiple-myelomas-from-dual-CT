@@ -4,7 +4,7 @@ from scipy.stats import entropy as scipy_entropy
 import numpy as np
 
 
-def extract_intensity_features(data_array):
+def extract_intensity_features(image_array):
     """
     Compute first-order intensity (histogram) features.
 
@@ -12,25 +12,25 @@ def extract_intensity_features(data_array):
 
     Returns: dict with intensity features
     """
-    mean = float(np.mean(data_array))
-    std = float(np.std(data_array))
-    median = float(np.median(data_array))
-    min_voxel = np.min(data_array)
-    max_voxel = np.max(data_array)
+    mean = float(np.mean(image_array))
+    std = float(np.std(image_array))
+    median = float(np.median(image_array))
+    min_voxel = np.min(image_array)
+    max_voxel = np.max(image_array)
 
-    p10 = np.percentile(data_array, 10)
-    p25 = np.percentile(data_array, 25)
-    p75 = np.percentile(data_array, 75)
-    p90 = np.percentile(data_array, 90)
+    p10 = np.percentile(image_array, 10)
+    p25 = np.percentile(image_array, 25)
+    p75 = np.percentile(image_array, 75)
+    p90 = np.percentile(image_array, 90)
     iqr = abs(float(p75) - float(p25))
 
-    sk = skew(data_array)
-    kt = kurtosis(data_array)
-    rms = np.sqrt(np.mean(data_array ** 2))
-    energy = np.sum(data_array ** 2)
-    mad = np.mean(np.abs(data_array - mean))
+    sk = skew(image_array)
+    kt = kurtosis(image_array)
+    rms = np.sqrt(np.mean(image_array ** 2))
+    energy = np.sum(image_array ** 2)
+    mad = np.mean(np.abs(image_array - mean))
 
-    hist, _ = np.histogram(data_array, bins=256, density=True)
+    hist, _ = np.histogram(image_array, bins=256, density=True)
     probs = hist / np.sum(hist)
     entropy = scipy_entropy(probs + np.finfo(float).eps, base=2)
     uni = np.sum(probs ** 2)
@@ -56,16 +56,14 @@ def extract_intensity_features(data_array):
     }
 
 
-def extract_glcm_features(region_mask, img_data, levels=32):
+def extract_glcm_features(region_mask, image_data, levels=32):
     """
     Compute GLCM texture features slice-by-slice for a given mask.
     Takes all axial slices that contain voxels from region_mask.
 
     Param: region_mask : 3D np.array (binary mask of vertebra or lesions)
-    Param: img_data : 3D np.array (original CT intensities)
+    Param: image_data : 3D np.array (original CT intensities)
     Param: levels : int, number of gray levels for quantization
-    Param: distances : list, pixel distances for GLCM
-    Param: angles : list, angles for GLCM
 
     Returns: dict with averaged GLCM features
     """
@@ -78,7 +76,7 @@ def extract_glcm_features(region_mask, img_data, levels=32):
         if np.sum(mask_slice) == 0:
             continue  # skip empty slices
 
-        img_slice = img_data[:, :, z]
+        img_slice = image_data[:, :, z]
         voxels = img_slice[mask_slice > 0]
 
         # quantize intensities into [0, levels-1]
@@ -108,7 +106,7 @@ def extract_glcm_features(region_mask, img_data, levels=32):
     return averaged
 
 
-def extract_shape_features(region_mask, spacing=(0.9, 0.9, 0.9)):
+def extract_shape_features(region_mask, spacing=(0.97, 0.97, 0.6)):
     """
     Compute simple 3D shape features from binary mask.
 

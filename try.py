@@ -8,20 +8,25 @@ image_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\Conv
 lesions_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\Lesion_labels\Myel_001_lesions_seg_validation_VV_final.nii.gz"
 vertebrae_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\Spine_labels\myel_001_spine_seg_nnUNet_cor.nii.gz"
 
-# Load the images to numpy_array
-ct_image = NiftiFile(image_path).get_image_data()
-lesions_mask = NiftiFile(lesions_mask_path).get_image_data()
-vertebrae_mask = NiftiFile(vertebrae_mask_path).get_image_data()
+# Load the images as object from nifti file
+ct_img = NiftiFile(image_path)
+lesions_img = NiftiFile(lesions_mask_path)
+vertebrae_img = NiftiFile(vertebrae_mask_path)
+
+# Load the images as numpy array
+# ct_image_data = ct_img.get_image_data()
+# lesions_mask_data = lesions_img.get_image_data()
+# vertebrae_mask_data = vertebrae_img.get_image_data()
 
 # Vertebrae or lesions mask
-# lesion_voxels = (vertebrae_mask == 22) & (lesions_mask > 0)
-# vertebra_voxels = (vertebrae_mask == 14) & (lesions_mask == 0)
+# lesion_voxels = (vertebrae_mask_data == 22) & (lesions_mask_data > 0)
+# vertebra_voxels = (vertebrae_mask_data == 14) & (lesions_mask_data == 0)
 
 # Visualizations
-# show_individual_slices(ct_image)
-# show_slices_scroll(ct_image, axis=0, pause_time=0.01)
-# show_slices_scroll_with_mask(ct_image, vertebra_voxels, axis=0, pause_time=0.01)
-# show_slices_scroll_range_with_mask(ct_image, vertebra_voxels, start=150, end=300)
+# show_individual_slices(ct_image_data)
+# show_slices_scroll(ct_image_data, axis=0, pause_time=0.01)
+# show_slices_scroll_with_mask(ct_image_data, vertebra_voxels, axis=0, pause_time=0.01)
+# show_slices_scroll_range_with_mask(ct_image_data, vertebra_voxels, start=150, end=300)
 
 # Datasets
-# create_features_dfs(ct_image, vertebrae_mask, lesions_mask)
+# create_features_dfs(ct_img, lesions_img, vertebrae_img)
