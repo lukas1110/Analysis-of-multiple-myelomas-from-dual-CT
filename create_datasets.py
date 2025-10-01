@@ -1,4 +1,4 @@
-from compute_features import *
+from extract_features import *
 import pandas as pd
 
 

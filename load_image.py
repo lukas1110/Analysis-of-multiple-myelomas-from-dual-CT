@@ -5,7 +5,7 @@ import numpy as np
 class NiftiFile:
     """
     A utility class to load and work with NIfTI (.nii or .nii.gz) files.
-    Provides access to voxel data, header information and real-world coordinates in millimeters.
+    Provides access to voxel data and real-world coordinates in millimeters.
     """
 
     def __init__(self, path: str):
