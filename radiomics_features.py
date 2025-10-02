@@ -10,10 +10,21 @@ vertebra_names = (
     ["L" + str(i) for i in range(1, 6)]        # L1–L5
 )
 
-# Initialize default feature extractor
+# Initialize default feature extractor with setting you set
 features_extractor = featureextractor.RadiomicsFeatureExtractor()
-features_extractor.enableAllFeatures()
-features_extractor.disableAllImageTypes()   # only original image, default features
+features_extractor.settings['additionalInfo'] = False   # without useless info
+
+# Disable diagnostics
+features_extractor.disableAllFeatures()
+
+# Enable features you need:
+features_extractor.enableFeatureClassByName("firstorder")
+features_extractor.enableFeatureClassByName("glcm")
+features_extractor.enableFeatureClassByName("glrlm")
+features_extractor.enableFeatureClassByName("glszm")
+features_extractor.enableFeatureClassByName("gldm")
+features_extractor.enableFeatureClassByName("ngtdm")
+features_extractor.enableFeatureClassByName("shape")
 
 # Whole spine features
 def radiomics_spine_features(image_path, vertebrae_path, lesions_path):
@@ -29,16 +40,16 @@ def radiomics_spine_features(image_path, vertebrae_path, lesions_path):
 
     # --- Vertebrae without lesions ---
     healthy_vertebra_mask = vertebra_mask * Sitk.InvertIntensity(lesions_mask, maximum=1)
-    v_entry = {"region": "vertebrae_no_lesions"}
-    features = features_extractor.execute(ct_img, healthy_vertebra_mask)
-    v_entry.update(features)
+    v_entry = {}
+    v_features = features_extractor.execute(ct_img, healthy_vertebra_mask)
+    v_entry.update(v_features)
     df_spine_vertebrae = pd.DataFrame([v_entry])
     df_spine_vertebrae.to_csv("radiomics_spine_vertebrae_features.csv", index=False)
 
     # --- All lesions ---
-    l_entry = {"region": "lesions"}
-    features = features_extractor.execute(ct_img, lesions_mask)
-    l_entry.update(features)
+    l_entry = {}
+    l_features = features_extractor.execute(ct_img, lesions_mask)
+    l_entry.update(l_features)
     df_spine_lesions = pd.DataFrame([l_entry])
     df_spine_lesions.to_csv("radiomics_spine_lesions_features.csv", index=False)
 
