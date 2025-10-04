@@ -1,6 +1,7 @@
 from radiomics import featureextractor
 import SimpleITK as Sitk
 import pandas as pd
+import numpy as np
 
 
 # Vertebra names mapping (25 vertebrae)
@@ -26,84 +27,98 @@ features_extractor.enableFeatureClassByName("gldm")
 features_extractor.enableFeatureClassByName("ngtdm")
 features_extractor.enableFeatureClassByName("shape")
 
+
 # Whole spine features
-def radiomics_spine_features(image_path, vertebrae_path, lesions_path):
+def radiomics_spine_features(ct_img, vertebrae_img, lesions_img):
 
-    # Load images as SimpleITK objects
-    ct_img = Sitk.ReadImage(image_path)
-    vertebrae_img = Sitk.ReadImage(vertebrae_path)
-    lesions_img = Sitk.ReadImage(lesions_path)
+    # Load images as numpy ndarray
+    vertebrae_img_data = Sitk.GetArrayFromImage(vertebrae_img)
+    lesions_img_data = Sitk.GetArrayFromImage(lesions_img)
 
-    # Define segmentation masks for vertebrae and lesions
-    vertebra_mask = Sitk.Cast(vertebrae_img > 0, Sitk.sitkUInt8)
-    lesions_mask = Sitk.Cast(lesions_img > 0, Sitk.sitkUInt8)
+    # Count number of lesions inside whole spine
+    n_lesions_spine = len(np.unique(lesions_img_data[(vertebrae_img_data > 0) & (lesions_img_data > 0)]))
+
+    # Define segmentation masks for lesions and vertebrae without lesions (binary 0/1)
+    vertebrae_img_data = ((vertebrae_img_data > 0) & (lesions_img_data == 0)).astype(np.uint8)
+    lesions_img_data = (lesions_img_data > 0).astype(np.uint8)
+
+    # Convert to SimpleITK images
+    vertebrae_mask = Sitk.GetImageFromArray(vertebrae_img_data)
+    lesions_mask = Sitk.GetImageFromArray(lesions_img_data)
+
+    # Copy spatial information from CT
+    vertebrae_mask.CopyInformation(ct_img)
+    lesions_mask.CopyInformation(ct_img)
 
     # --- Vertebrae without lesions ---
-    healthy_vertebra_mask = vertebra_mask * Sitk.InvertIntensity(lesions_mask, maximum=1)
     v_entry = {}
-    v_features = features_extractor.execute(ct_img, healthy_vertebra_mask)
+    v_features = features_extractor.execute(ct_img, vertebrae_mask)
     v_entry.update(v_features)
-    df_spine_vertebrae = pd.DataFrame([v_entry])
-    df_spine_vertebrae.to_csv("radiomics_spine_vertebrae_features.csv", index=False)
+    pd.DataFrame([v_entry]).to_csv("radiomics_spine_vertebrae_features.csv", index=False)
 
-    # --- All lesions ---
-    l_entry = {}
+    # --- All lesions in spine ---
+    l_entry = {"n_lesions": n_lesions_spine}
     l_features = features_extractor.execute(ct_img, lesions_mask)
     l_entry.update(l_features)
-    df_spine_lesions = pd.DataFrame([l_entry])
-    df_spine_lesions.to_csv("radiomics_spine_lesions_features.csv", index=False)
+    pd.DataFrame([l_entry]).to_csv("radiomics_spine_lesions_features.csv", index=False)
 
 
 # Individual vertebrae features
-# def radiomics_vertebrae_features(ct_img, vertebrae_img, lesions_img):
-#     vertebrae_results = []
-#     lesion_results = []
-#
-#     vertebrae_data = sitk.GetArrayFromImage(vertebrae_img)
-#     lesions_data = sitk.GetArrayFromImage(lesions_img)
-#
-#     for v_label in np.unique(vertebrae_data):
-#         if v_label == 0:
-#             continue
-#
-#         # --- Vertebra voxels without lesions ---
-#         v_mask_array = (vertebrae_data == v_label) & (lesions_data == 0)
-#
-#         v_mask_sitk = sitk.GetImageFromArray(v_mask_array.astype(np.uint8))
-#         v_mask_sitk.CopyInformation(ct_img)
-#
-#         v_entry = {
-#             "vertebra_id": int(v_label),
-#             "vertebra_name": vertebra_names[int(v_label) - 1]
-#         }
-#
-#         features = features_extractor.execute(ct_img, v_mask_sitk)
-#         v_entry.update(features)
-#         vertebrae_results.append(v_entry)
-#
-#         # --- Lesions inside vertebra ---
-#         l_mask_array = (vertebrae_data == v_label) & (lesions_data > 0)
-#
-#         l_mask_sitk = sitk.GetImageFromArray(l_mask_array.astype(np.uint8))
-#         l_mask_sitk.CopyInformation(ct_img)
-#
-#         lesion_entry = {
-#             "vertebra_id": int(v_label),
-#             "vertebra_name": vertebra_names[int(v_label) - 1]
-#         }
-#
-#         features = features_extractor.execute(ct_img, l_mask_sitk)
-#         lesion_entry.update(features)
-#         lesion_results.append(lesion_entry)
-#
-#     # Save to CSV
-#     df_vertebrae = pd.DataFrame(vertebrae_results)
-#     df_lesions = pd.DataFrame(lesion_results)
-#
-#     df_vertebrae.to_csv("radiomics_vertebrae_features.csv", index=False)
-#     df_lesions.to_csv("radiomics_lesions_features.csv", index=False)
-#
-#
+def radiomics_vertebrae_features(ct_img, vertebrae_img, lesions_img):
+
+    vertebrae_data = Sitk.GetArrayFromImage(vertebrae_img)
+    lesions_data = Sitk.GetArrayFromImage(lesions_img)
+
+    vertebrae_results = []
+    lesion_results = []
+
+    for v_label in np.unique(vertebrae_data):
+        if v_label == 0:
+            continue
+
+        single_vertebra_data = (vertebrae_data == v_label)
+        single_vertebra_healthy_data = (single_vertebra_data & (lesions_data == 0))
+        single_vertebra_lesions_data = (single_vertebra_data & (lesions_data > 0))
+
+        # Number of lesions in single vertebra
+        n_lesions = len(np.unique(lesions_data[single_vertebra_lesions_data]))
+
+        # Convert to SimpleITK images
+        single_vertebra_healthy_mask = Sitk.GetImageFromArray(single_vertebra_healthy_data.astype(np.uint8))
+        single_vertebra_lesions_mask = Sitk.GetImageFromArray(single_vertebra_lesions_data.astype(np.uint8))
+
+        # Copy spatial information
+        single_vertebra_healthy_mask.CopyInformation(ct_img)
+        single_vertebra_lesions_mask.CopyInformation(ct_img)
+
+        # Radiomics features for healthy vertebra
+        v_entry = {
+            "vertebra_id": int(v_label),
+            "vertebra_name": vertebra_names[int(v_label) - 1],
+            "n_lesions": n_lesions
+        }
+
+        v_features = features_extractor.execute(ct_img, single_vertebra_healthy_mask)
+        v_entry.update(v_features)
+        vertebrae_results.append(v_entry)
+
+        if n_lesions > 0:
+            # Radiomics features for lesions
+            lesion_entry = {
+                "vertebra_id": int(v_label),
+                "vertebra_name": vertebra_names[int(v_label) - 1],
+                "n_lesions": n_lesions
+            }
+
+            l_features = features_extractor.execute(ct_img, single_vertebra_lesions_mask)
+            lesion_entry.update(l_features)
+            lesion_results.append(lesion_entry)
+
+    # Save results
+    pd.DataFrame(vertebrae_results).to_csv("radiomics_vertebrae_features.csv", index=False)
+    pd.DataFrame(lesion_results).to_csv("radiomics_lesions_features.csv", index=False)
+
+
 # # Individual lesion features
 # def radiomics_individual_lesion_features(ct_img, vertebrae_img, lesions_img):
 #

@@ -9,6 +9,7 @@ vertebra_names = (
     ["L" + str(i) for i in range(1, 6)]        # L1–L5
 )
 
+
 def create_spine_features_dfs(ct_img, vertebrae_img, lesions_img):
 
     # Get images data
@@ -31,7 +32,7 @@ def create_spine_features_dfs(ct_img, vertebrae_img, lesions_img):
     # ---------------- Lesions inside vertebrae ----------------
     lesion_voxels = ct_image_data[(vertebrae_mask_data > 0) & (lesions_mask_data > 0)]
 
-    # count number of unique lesion labels inside vertebrae
+    # Count number of lesions inside vertebrae
     n_lesions_spine = len(np.unique(lesions_mask_data[(vertebrae_mask_data > 0) & (lesions_mask_data > 0)]))
 
     l_entry = {

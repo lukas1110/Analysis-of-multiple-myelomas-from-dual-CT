@@ -21,9 +21,9 @@ lesions_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_0
 # lesions_img = NiftiFile(lesions_mask_path)
 
 # ---------------------------------------------------SIMPLE-ITK OBJECTS-------------------------------------------------
-# ct_img = Sitk.ReadImage(image_path)
-# vertebrae_img = Sitk.ReadImage(vertebrae_mask_path)
-# lesions_img = Sitk.ReadImage(lesions_mask_path)
+ct_img = Sitk.ReadImage(image_path)
+vertebrae_img = Sitk.ReadImage(vertebrae_mask_path)
+lesions_img = Sitk.ReadImage(lesions_mask_path)
 
 
 
@@ -31,13 +31,48 @@ lesions_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_0
 
 # ----------------------------------------------CONVERT NIBABEL TO NUMPY ARRAY------------------------------------------
 # ct_image_data = ct_img.get_image_data()
-# vertebrae_mask_data = vertebrae_img.get_image_data()
-# lesions_mask_data = lesions_img.get_image_data()
+# vertebrae_image_data = vertebrae_img.get_image_data()
+# lesions_image_data = lesions_img.get_image_data()
 
 # --------------------------------------------CONVERT SIMPLE-ITK TO NUMPY ARRAY-----------------------------------------
+# ct_image_data = Sitk.GetArrayFromImage(ct_img)
 # vertebrae_image_data = Sitk.GetArrayFromImage(vertebrae_img)
 # lesions_image_data = Sitk.GetArrayFromImage(lesions_img)
-# healthy_vertebra_data = Sitk.GetArrayFromImage(healthy_vertebra_mask)
+
+
+
+
+
+# --------------------------------CREATE SPECIFIC SEGMENTATION MASKS FOR VISUALIZATION - NIBABEL------------------------
+# vertebrae_image_data = (vertebrae_image_data == 22) & (lesions_image_data == 0)
+# lesions_image_data = (vertebrae_image_data == 22) & (lesions_image_data > 0)
+
+# ------------------------------CREATE SPECIFIC SEGMENTATION MASKS FOR VISUALIZATION - SIMPLE-ITK-----------------------
+# whole spine
+# vertebrae_image_data = (vertebrae_image_data > 0) & (lesions_image_data == 0)
+# lesions_image_data = (lesions_image_data > 0)
+
+
+# single vertebra
+# single_vertebra_data = (vertebrae_image_data == 14)
+# single_vertebra_healthy_data = single_vertebra_data & (lesions_image_data == 0)
+# single_vertebra_lesions_data = single_vertebra_data & (lesions_image_data > 0)
+
+# n_lesions = len(np.unique(lesions_image_data[single_vertebra_lesions_data]))
+# print(n_lesions)
+
+
+# single lesion
+
+
+
+
+
+# ----------------------------------------------------VISUALIZATION----------------------------------------------------
+# show_individual_slices(ct_image_data)
+# show_slices_scroll(ct_image_data, axis=0, pause_time=0.01)
+# show_slices_scroll_with_mask(ct_image_data, vertebra_voxels, axis=0, pause_time=0.01)
+# show_slices_scroll_range_with_mask(ct_image_data, single_vertebra_lesions_data, axis=2 ,start=250, end=300)
 
 
 
@@ -49,30 +84,8 @@ lesions_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_0
 # create_individual_lesion_features_dfs(ct_img, vertebrae_img, lesions_img)
 
 # ----------------------------------------CREATE DATASET USING SIMPLE-ITK AND RADIOMICS---------------------------------
-# radiomics_spine_features(image_path, vertebrae_mask_path, lesions_mask_path)
-
-
-
-
-
-# --------------------------------CREATE SPECIFIC SEGMENTATION MASKS FOR VISUALIZATION - NIBABEL------------------------
-# vertebra_voxels = (vertebrae_mask_data == 14) & (lesions_mask_data == 0)
-# lesion_voxels = (vertebrae_mask_data == 22) & (lesions_mask_data > 0)
-
-# ------------------------------CREATE SPECIFIC SEGMENTATION MASKS FOR VISUALIZATION - SIMPLE-ITK-----------------------
-# vertebra_mask = Sitk.Cast(vertebrae_img > 0, Sitk.sitkUInt8)
-# lesions_mask = Sitk.Cast(lesions_img > 0, Sitk.sitkUInt8)
-# healthy_vertebra_mask = vertebra_mask * Sitk.InvertIntensity(lesions_mask, maximum=1)
-
-
-
-
-
-# ----------------------------------------------------VISUALIZATION----------------------------------------------------
-# show_individual_slices(ct_image_data)
-# show_slices_scroll(ct_image_data, axis=0, pause_time=0.01)
-# show_slices_scroll_with_mask(ct_image_data, vertebra_voxels, axis=0, pause_time=0.01)
-# show_slices_scroll_range_with_mask(ct_image_data, vertebra_voxels ,start=150, end=300)
+# radiomics_spine_features(ct_img, vertebrae_img, lesions_img)
+# radiomics_vertebrae_features(ct_img, vertebrae_img, lesions_img)
 
 
 
@@ -94,3 +107,11 @@ lesions_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_0
 # features_extractor.enableFeatureClassByName("gldm")
 # features_extractor.enableFeatureClassByName("ngtdm")
 # features_extractor.enableFeatureClassByName("shape")
+#
+# # Print feature extractor settings
+# for key in features_extractor.settings:
+#     print(key, ":", features_extractor.settings[key])
+# print()
+# print(features_extractor.enabledFeatures)
+# print()
+# print(features_extractor.enabledImagetypes)
