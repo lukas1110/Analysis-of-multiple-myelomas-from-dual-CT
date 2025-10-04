@@ -63,6 +63,10 @@ lesions_img = Sitk.ReadImage(lesions_mask_path)
 
 
 # single lesion
+# lesions_labels = np.unique(lesions_image_data[vertebrae_image_data == 14])
+# lesions_labels = lesions_labels[lesions_labels > 0]
+# lesion_mask_data = (lesions_image_data == 1088) & (vertebrae_image_data == 14)
+# print(lesions_labels)
 
 
 
@@ -72,7 +76,7 @@ lesions_img = Sitk.ReadImage(lesions_mask_path)
 # show_individual_slices(ct_image_data)
 # show_slices_scroll(ct_image_data, axis=0, pause_time=0.01)
 # show_slices_scroll_with_mask(ct_image_data, vertebra_voxels, axis=0, pause_time=0.01)
-# show_slices_scroll_range_with_mask(ct_image_data, single_vertebra_lesions_data, axis=2 ,start=250, end=300)
+# show_slices_scroll_range_with_mask(ct_image_data, lesion_mask_data, axis=2 ,start=250, end=300)
 
 
 
@@ -86,6 +90,7 @@ lesions_img = Sitk.ReadImage(lesions_mask_path)
 # ----------------------------------------CREATE DATASET USING SIMPLE-ITK AND RADIOMICS---------------------------------
 # radiomics_spine_features(ct_img, vertebrae_img, lesions_img)
 # radiomics_vertebrae_features(ct_img, vertebrae_img, lesions_img)
+# radiomics_individual_lesion_features(ct_img, vertebrae_img, lesions_img)
 
 
 
@@ -100,13 +105,10 @@ lesions_img = Sitk.ReadImage(lesions_mask_path)
 # features_extractor.disableAllFeatures()
 #
 # # Enable features you need:
-# features_extractor.enableFeatureClassByName("firstorder")
-# features_extractor.enableFeatureClassByName("glcm")
-# features_extractor.enableFeatureClassByName("glrlm")
-# features_extractor.enableFeatureClassByName("glszm")
-# features_extractor.enableFeatureClassByName("gldm")
-# features_extractor.enableFeatureClassByName("ngtdm")
-# features_extractor.enableFeatureClassByName("shape")
+# features_set = ["firstorder", "glcm", "glrlm", "glszm", "gldm", "ngtdm", "shape"]
+#
+# for feature in features_set:
+#     features_extractor.enableFeatureClassByName(feature)
 #
 # # Print feature extractor settings
 # for key in features_extractor.settings:
