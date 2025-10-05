@@ -1,4 +1,4 @@
-from load_image import NiftiFile
+from load_nifti_image import NiftiFile
 from create_datasets import *
 from visualization import *
 from radiomics_features import *
@@ -21,9 +21,9 @@ lesions_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_0
 # lesions_img = NiftiFile(lesions_mask_path)
 
 # ---------------------------------------------------SIMPLE-ITK OBJECTS-------------------------------------------------
-ct_img = Sitk.ReadImage(image_path)
-vertebrae_img = Sitk.ReadImage(vertebrae_mask_path)
-lesions_img = Sitk.ReadImage(lesions_mask_path)
+# ct_img = Sitk.ReadImage(image_path)
+# vertebrae_img = Sitk.ReadImage(vertebrae_mask_path)
+# lesions_img = Sitk.ReadImage(lesions_mask_path)
 
 
 

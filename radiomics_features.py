@@ -20,7 +20,6 @@ features_extractor.disableAllFeatures()
 
 # Enable features you need
 features_set = ["firstorder", "glcm", "glrlm", "glszm", "gldm", "ngtdm", "shape"]
-
 for feature in features_set:
     features_extractor.enableFeatureClassByName(feature)
 
@@ -101,15 +100,15 @@ def radiomics_vertebrae_features(ct_img, vertebrae_img, lesions_img):
 
         if n_lesions > 0:
             # Radiomics features for lesions
-            lesion_entry = {
+            l_entry = {
                 "vertebra_id": int(v_label),
                 "vertebra_name": vertebra_names[int(v_label) - 1],
                 "n_lesions": n_lesions
             }
 
             l_features = features_extractor.execute(ct_img, single_vertebra_lesions_mask)
-            lesion_entry.update(l_features)
-            lesion_results.append(lesion_entry)
+            l_entry.update(l_features)
+            lesion_results.append(l_entry)
 
     # Save results
     pd.DataFrame(vertebrae_results).to_csv("radiomics_vertebrae_features.csv", index=False)
