@@ -35,20 +35,20 @@ def radiomics_spine_features(ct_img, vertebrae_img, lesions_img):
     n_lesions_spine = len(np.unique(lesions_img_data[(vertebrae_img_data > 0) & (lesions_img_data > 0)]))
 
     # Define segmentation masks for lesions and vertebrae without lesions (binary 0/1)
-    vertebrae_img_data = ((vertebrae_img_data > 0) & (lesions_img_data == 0)).astype(np.uint8)
-    lesions_img_data = (lesions_img_data > 0).astype(np.uint8)
+    healthy_vertebrae_img_data = (vertebrae_img_data > 0) & (lesions_img_data == 0)
+    lesions_img_data = (vertebrae_img_data > 0) & (lesions_img_data > 0)
 
     # Convert to SimpleITK images
-    vertebrae_mask = Sitk.GetImageFromArray(vertebrae_img_data)
-    lesions_mask = Sitk.GetImageFromArray(lesions_img_data)
+    healthy_vertebrae_mask = Sitk.GetImageFromArray(healthy_vertebrae_img_data.astype(np.uint8))
+    lesions_mask = Sitk.GetImageFromArray(lesions_img_data.astype(np.uint8))
 
     # Copy spatial information from CT
-    vertebrae_mask.CopyInformation(ct_img)
+    healthy_vertebrae_mask.CopyInformation(ct_img)
     lesions_mask.CopyInformation(ct_img)
 
     # --- Vertebrae without lesions ---
     v_entry = {}
-    v_features = features_extractor.execute(ct_img, vertebrae_mask)
+    v_features = features_extractor.execute(ct_img, healthy_vertebrae_mask)
     v_entry.update(v_features)
     pd.DataFrame([v_entry]).to_csv("radiomics_spine_vertebrae_features.csv", index=False)
 
