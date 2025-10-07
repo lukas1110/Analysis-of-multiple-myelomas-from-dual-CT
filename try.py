@@ -1,10 +1,5 @@
-from load_nifti_image import NiftiFile
-from create_datasets import *
-from visualization import *
-from radiomics_features import *
+from radiomics_features import RadiomicsFeatures
 import SimpleITK as Sitk
-from radiomics import featureextractor
-
 
 # ----------------------------------------------------PATHS TO FILES----------------------------------------------------
 image_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\ConvCT_data_nifti\myel_001_konv.nii.gz"
@@ -88,6 +83,10 @@ lesions_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_0
 # create_individual_lesion_features_dfs(ct_img, vertebrae_img, lesions_img)
 
 # ----------------------------------------CREATE DATASET USING SIMPLE-ITK AND RADIOMICS---------------------------------
+# RadiomicsFeatures(ct_img, vertebrae_img, lesions_img).extract_radiomics_spine_features()
+# RadiomicsFeatures(ct_img, vertebrae_img, lesions_img).extract_radiomics_vertebrae_features()
+# RadiomicsFeatures(ct_img, vertebrae_img, lesions_img).extract_radiomics_individual_lesion_features()
+
 # radiomics_spine_features(ct_img, vertebrae_img, lesions_img)
 # radiomics_vertebrae_features(ct_img, vertebrae_img, lesions_img)
 # radiomics_individual_lesion_features(ct_img, vertebrae_img, lesions_img)
