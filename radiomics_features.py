@@ -9,7 +9,8 @@ from radiomics import featureextractor
 VERTEBRA_NAMES = (
     ["C" + str(i) for i in range(1, 8)] +      # C1–C7
     ["T" + str(i) for i in range(1, 13)] +     # T1–T12
-    ["L" + str(i) for i in range(1, 6)]        # L1–L5
+    ["L" + str(i) for i in range(1, 6)] +      # L1–L5
+    ["S" + str(i) for i in range(1, 6)]        # S1–S5 (optional)
 )
 
 class RadiomicsFeatures:
@@ -53,6 +54,9 @@ class RadiomicsFeatures:
         """
         features_extractor.settings['additionalInfo'] = False   # turn off useless info
         features_extractor.disableAllFeatures()
+
+        # Set another image type (Original + Gradient)
+        features_extractor.enableImageTypeByName("Gradient")
 
         # Enable radiomics feature groups
         features_set = ["firstorder", "glcm", "glrlm", "glszm", "gldm", "ngtdm", "shape"]
@@ -155,7 +159,6 @@ class RadiomicsFeatures:
 
             # --- Healthy vertebra features ---
             v_entry = {
-                "vertebra_id": int(v_label),
                 "vertebra_name": VERTEBRA_NAMES[int(v_label) - 1],
                 "n_lesions": n_lesions
             }
@@ -168,7 +171,6 @@ class RadiomicsFeatures:
             # --- Lesions features (only if present) ---
             if n_lesions > 0:
                 l_entry = {
-                    "vertebra_id": int(v_label),
                     "vertebra_name": VERTEBRA_NAMES[int(v_label) - 1],
                     "n_lesions": n_lesions
                 }
@@ -205,9 +207,7 @@ class RadiomicsFeatures:
                 lesion_mask_data = (self.lesions_data == l_label) & (self.vertebrae_data == v_label)
 
                 l_entry = {
-                    "vertebra_id": int(v_label),
                     "vertebra_name": VERTEBRA_NAMES[int(v_label) - 1],
-                    "lesion_id": int(l_label)
                 }
 
                 l_features = self.features_extractor.execute(

@@ -2,6 +2,9 @@ from radiomics_features import RadiomicsFeatures
 import SimpleITK as Sitk
 from helper_files.visualization import *
 from helper_files.load_nifti_image import NiftiFile
+from radiomics import featureextractor
+import pandas as pd
+import numpy as np
 
 # ----------------------------------------------------PATHS TO FILES----------------------------------------------------
 image_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\ConvCT_data_nifti\myel_001_konv.nii.gz"
@@ -89,10 +92,6 @@ lesions_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_0
 # RadiomicsFeatures(ct_img, vertebrae_img, lesions_img).extract_radiomics_vertebrae_features()
 # RadiomicsFeatures(ct_img, vertebrae_img, lesions_img).extract_radiomics_individual_lesion_features()
 
-# radiomics_spine_features(ct_img, vertebrae_img, lesions_img)
-# radiomics_vertebrae_features(ct_img, vertebrae_img, lesions_img)
-# radiomics_individual_lesion_features(ct_img, vertebrae_img, lesions_img)
-
 
 
 
@@ -104,6 +103,7 @@ lesions_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_0
 #
 # # Disable diagnostics
 # features_extractor.disableAllFeatures()
+# features_extractor.enableImageTypeByName("Gradient")
 #
 # # Enable features you need:
 # features_set = ["firstorder", "glcm", "glrlm", "glszm", "gldm", "ngtdm", "shape"]
@@ -118,3 +118,8 @@ lesions_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_0
 # print(features_extractor.enabledFeatures)
 # print()
 # print(features_extractor.enabledImagetypes)
+
+
+
+
+# ------------------------------------------------ WORKING WITH CSV ----------------------------------------------------
