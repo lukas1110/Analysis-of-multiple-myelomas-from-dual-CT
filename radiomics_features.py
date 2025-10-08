@@ -5,7 +5,7 @@ import SimpleITK as Sitk
 from radiomics import featureextractor
 
 
-# Vertebra names mapping (25 vertebrae)
+# Vertebra names mapping (29 vertebrae)
 VERTEBRA_NAMES = (
     ["C" + str(i) for i in range(1, 8)] +      # C1–C7
     ["T" + str(i) for i in range(1, 13)] +     # T1–T12
@@ -94,7 +94,7 @@ class RadiomicsFeatures:
     # FEATURE EXTRACTION METHODS
     # --------------------------
 
-    def extract_radiomics_spine_features(self):
+    def extract_radiomics_spine_features(self, csv_name: str=None, path_to_save: str=None):
         """
         Extract radiomics features for:
             - All healthy vertebrae combined (vertebra mask without lesions)
@@ -103,6 +103,8 @@ class RadiomicsFeatures:
         Produces:
             - radiomics_spine_vertebrae_features.csv
             - radiomics_spine_lesions_features.csv
+
+        optional: path_to_save (str): Path to save CSV file.
         """
         # Predefine result lists
         v_result, l_result = [], []
@@ -129,10 +131,18 @@ class RadiomicsFeatures:
         l_result.append(l_entry)
 
         # Save DataFrames to csv files
-        self._save_csv(v_result, "radiomics_spine_vertebrae_features.csv")
-        self._save_csv(l_result, "radiomics_spine_lesions_features.csv")
+        if csv_name is not None:
+            self._save_csv(v_result, csv_name=csv_name + "_radiomics_spine_vertebrae_features.csv",
+                           path_to_save=path_to_save)
+            self._save_csv(l_result, csv_name=csv_name + "_radiomics_spine_lesions_features.csv",
+                           path_to_save=path_to_save)
+        else:
+            self._save_csv(v_result, "radiomics_spine_vertebrae_features.csv",
+                           path_to_save=path_to_save)
+            self._save_csv(l_result, "radiomics_spine_lesions_features.csv",
+                           path_to_save=path_to_save)
 
-    def extract_radiomics_vertebrae_features(self):
+    def extract_radiomics_vertebrae_features(self, csv_name: str=None, path_to_save: str=None):
         """
         Extract radiomics features for each vertebra separately.
         For each vertebra:
@@ -141,6 +151,8 @@ class RadiomicsFeatures:
         Produces:
             - radiomics_vertebrae_features.csv
             - radiomics_lesions_features.csv
+
+        optional: path_to_save (str): Path to save CSV file.
         """
         # Predefine result lists
         vertebrae_results, lesion_results = [], []
@@ -181,15 +193,25 @@ class RadiomicsFeatures:
                 lesion_results.append(l_entry)
 
         # Save DataFrames to csv files
-        self._save_csv(vertebrae_results, "radiomics_vertebrae_features.csv")
-        self._save_csv(lesion_results, "radiomics_lesions_features.csv")
+        if csv_name is not None:
+            self._save_csv(vertebrae_results, csv_name=csv_name + "_radiomics_vertebrae_features.csv",
+                           path_to_save=path_to_save)
+            self._save_csv(lesion_results, csv_name=csv_name + "_radiomics_lesions_features.csv",
+                           path_to_save=path_to_save)
+        else:
+            self._save_csv(vertebrae_results, "radiomics_vertebrae_features.csv",
+                           path_to_save=path_to_save)
+            self._save_csv(lesion_results, "radiomics_lesions_features.csv",
+                           path_to_save=path_to_save)
 
-    def extract_radiomics_individual_lesion_features(self):
+    def extract_radiomics_individual_lesion_features(self, csv_name: str=None, path_to_save: str=None):
         """
         Extract radiomics features for each individual lesion separately.
 
         Produces:
             - radiomics_individual_lesion_features.csv
+
+        optional: path_to_save (str): Path to save CSV file.
         """
         # Predefine result list
         results_list = []
@@ -216,4 +238,9 @@ class RadiomicsFeatures:
                 results_list.append(l_entry)
 
         # Save DataFrame to csv file
-        self._save_csv(results_list, "radiomics_individual_lesion_features.csv")
+        if csv_name is not None:
+            self._save_csv(results_list, csv_name=csv_name + "_radiomics_individual_lesion_features.csv",
+                           path_to_save=path_to_save)
+        else:
+            self._save_csv(results_list, "radiomics_individual_lesion_features.csv",
+                           path_to_save=path_to_save)
