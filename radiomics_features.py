@@ -118,15 +118,25 @@ class RadiomicsFeatures:
 
         # --- Vertebrae without lesions ---
         v_entry = {}
-        v_features = self.features_extractor.execute(
-            self.ct_img, self._convert_array_to_sitk_image(healthy_vertebrae_img_data))
+        try:
+            v_features = self.features_extractor.execute(
+                self.ct_img, self._convert_array_to_sitk_image(healthy_vertebrae_img_data))
+        except Exception as e:
+            print(f"Skipping vertebra spine features for image: {csv_name}: {e}")
+            v_features = {}
+
         v_entry.update(v_features)
         v_result.append(v_entry)
 
         # --- All lesions in spine ---
         l_entry = {"n_lesions": n_lesions_spine}
-        l_features = self.features_extractor.execute(
-            self.ct_img, self._convert_array_to_sitk_image(lesions_data))
+        try:
+            l_features = self.features_extractor.execute(
+                self.ct_img, self._convert_array_to_sitk_image(lesions_data))
+        except Exception as e:
+            print(f"Skipping lesions spine features for image: {csv_name}: {e}")
+            l_features = {}
+
         l_entry.update(l_features)
         l_result.append(l_entry)
 
@@ -174,9 +184,13 @@ class RadiomicsFeatures:
                 "vertebra_name": VERTEBRA_NAMES[int(v_label) - 1],
                 "n_lesions": n_lesions
             }
+            try:
+                v_features = self.features_extractor.execute(
+                    self.ct_img, self._convert_array_to_sitk_image(single_vertebra_healthy_data))
+            except Exception as e:
+                print(f"Skipping healthy vertebra features for vertebra: {VERTEBRA_NAMES[int(v_label) - 1]}: {e}")
+                v_features = {}
 
-            v_features = self.features_extractor.execute(
-                self.ct_img, self._convert_array_to_sitk_image(single_vertebra_healthy_data))
             v_entry.update(v_features)
             vertebrae_results.append(v_entry)
 
@@ -186,9 +200,13 @@ class RadiomicsFeatures:
                     "vertebra_name": VERTEBRA_NAMES[int(v_label) - 1],
                     "n_lesions": n_lesions
                 }
+                try:
+                    l_features = self.features_extractor.execute(
+                        self.ct_img, self._convert_array_to_sitk_image(single_vertebra_lesions_data))
+                except Exception as e:
+                    print(f"Skipping lesions vertebra features for vertebra: {VERTEBRA_NAMES[int(v_label) - 1]}: {e}")
+                    l_features = {}
 
-                l_features = self.features_extractor.execute(
-                    self.ct_img, self._convert_array_to_sitk_image(single_vertebra_lesions_data))
                 l_entry.update(l_features)
                 lesion_results.append(l_entry)
 
@@ -231,9 +249,13 @@ class RadiomicsFeatures:
                 l_entry = {
                     "vertebra_name": VERTEBRA_NAMES[int(v_label) - 1],
                 }
+                try:
+                    l_features = self.features_extractor.execute(
+                        self.ct_img, self._convert_array_to_sitk_image(lesion_mask_data))
+                except Exception as e:
+                    print(f"Skipping lesion features for lesion_ID: {l_label}: {e}")
+                    l_features = {}
 
-                l_features = self.features_extractor.execute(
-                    self.ct_img, self._convert_array_to_sitk_image(lesion_mask_data))
                 l_entry.update(l_features)
                 results_list.append(l_entry)
 

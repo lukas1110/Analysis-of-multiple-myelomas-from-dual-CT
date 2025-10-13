@@ -7,9 +7,9 @@ import pandas as pd
 import numpy as np
 
 # ----------------------------------------------------PATHS TO FILES----------------------------------------------------
-image_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\ConvCT_data_nifti\myel_001_konv.nii.gz"
-vertebrae_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\Spine_labels\myel_001_spine_seg_nnUNet_cor.nii.gz"
-lesions_mask_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\Lesion_labels\Myel_001_lesions_seg_validation_VV_final.nii.gz"
+image_path = r"E:\DATA_Myelomy\Myel_043\myel_043_monoe_80kev.nii.gz"
+vertebrae_mask_path = r"E:\DATA_Myelomy\Myel_043\myel_043_spine_seg.nii.gz"
+lesions_mask_path = r"E:\DATA_Myelomy\Myel_043\Myel_043_lesions_seg.nii.gz"
 
 
 
