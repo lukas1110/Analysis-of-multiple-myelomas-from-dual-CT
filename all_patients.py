@@ -102,7 +102,7 @@ class AllPatientsData:
 
             # print("\t\t-> Vertebra level")
             # radiomics_features.extract_radiomics_vertebrae_features(csv_name=image_name, path_to_save=path_to_save)
-            #
+
             # print("\t\t-> Lesions level")
             # radiomics_features.extract_radiomics_individual_lesion_features(csv_name=image_name, path_to_save=path_to_save)
 
@@ -127,6 +127,6 @@ class AllPatientsData:
             self._create_dataset(image_files_path, mask_files_path, path_to_save=myel_path)
 
 
-# data_folder_path = r"E:\DATA_Myelomy"
-data_folder_path = r"C:\Users\Lukas\OneDrive - VUT\Plocha\Diploma thesis"
+data_folder_path = r"D:\SPINE"
+# data_folder_path = r"C:\Users\Lukas\OneDrive - VUT\Plocha\Diploma thesis"
 AllPatientsData(data_folder_path).process_all_patients()
