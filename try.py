@@ -118,4 +118,3 @@ lesions_mask_path = r"E:\DATA_Myelomy\Myel_043\Myel_043_lesions_seg.nii.gz"
 # print(features_extractor.enabledFeatures)
 # print()
 # print(features_extractor.enabledImagetypes)
-
