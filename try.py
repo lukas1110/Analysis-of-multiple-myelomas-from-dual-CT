@@ -7,9 +7,9 @@ import pandas as pd
 import numpy as np
 
 # ----------------------------------------------------PATHS TO FILES----------------------------------------------------
-image_path = r"E:\DATA_Myelomy\Myel_043\myel_043_monoe_80kev.nii.gz"
-vertebrae_mask_path = r"E:\DATA_Myelomy\Myel_043\myel_043_spine_seg.nii.gz"
-lesions_mask_path = r"E:\DATA_Myelomy\Myel_043\Myel_043_lesions_seg.nii.gz"
+# image_path = r"E:\DATA_Myelomy\Myel_043\myel_043_monoe_80kev.nii.gz"
+# vertebrae_mask_path = r"E:\DATA_Myelomy\Myel_043\myel_043_spine_seg.nii.gz"
+# lesions_mask_path = r"E:\DATA_Myelomy\Myel_043\Myel_043_lesions_seg.nii.gz"
 
 
 
@@ -118,3 +118,35 @@ lesions_mask_path = r"E:\DATA_Myelomy\Myel_043\Myel_043_lesions_seg.nii.gz"
 # print(features_extractor.enabledFeatures)
 # print()
 # print(features_extractor.enabledImagetypes)
+
+
+
+
+
+# ------------------------------------------------ NEW PARAMETRIC MAP --------------------------------------------------
+c_25 = Sitk.GetArrayFromImage(Sitk.ReadImage(r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_CaSupp_25.nii.gz"))
+vmi_40 = Sitk.GetArrayFromImage(Sitk.ReadImage(r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_monoe_40kev.nii.gz"))
+vmi_120 = Sitk.GetArrayFromImage(Sitk.ReadImage(r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_monoe_120kev.nii.gz"))
+I = Sitk.ReadImage(r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_CaSupp_25.nii.gz")
+
+c_25_slice = c_25[:, :, 265]
+vmi_40_slice = vmi_40[:, :, 265]
+vmi_120_slice = vmi_120[:, :, 265]
+
+new_slice = ((vmi_120_slice + vmi_40_slice) - c_25_slice)
+
+plt.subplot(131)
+plt.imshow(c_25_slice, cmap="gray", origin="lower")
+plt.subplot(132)
+plt.imshow(vmi_40_slice, cmap="gray", origin="lower")
+plt.subplot(133)
+plt.imshow(new_slice, cmap="gray", origin="lower")
+plt.title("New slice")
+plt.show()
+
+# img_array = ((vmi_120 + vmi_40) - c_25)
+# img = Sitk.GetImageFromArray(img_array)
+# img.CopyInformation(I)
+# Sitk.WriteImage(img, "image.nii.gz")
+
+
