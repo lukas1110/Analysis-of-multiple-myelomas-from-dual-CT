@@ -2,7 +2,7 @@ import os
 import SimpleITK as Sitk
 
 
-base_folder_path = r"D:\not_finished"
+base_folder_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis"
 
 def extract_images(myel_path):
 
@@ -29,7 +29,7 @@ for myel_folder in os.listdir(base_folder_path):
     myel_path = os.path.join(base_folder_path, myel_folder)
 
     # Skip non-folders or folders not starting with "Myel"
-    if not os.path.isdir(myel_path) or "myel" not in myel_folder.lower():
+    if not os.path.isdir(myel_path) or "myel_" not in myel_folder.lower():
         continue
 
     image_files_path = extract_images(myel_path)
