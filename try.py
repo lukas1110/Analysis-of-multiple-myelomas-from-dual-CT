@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 
 # ----------------------------------------------------PATHS TO FILES----------------------------------------------------
-# image_path = r"E:\DATA_Myelomy\Myel_043\myel_043_monoe_80kev.nii.gz"
+# image_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_monoe_120kev.nii.gz"
 # vertebrae_mask_path = r"E:\DATA_Myelomy\Myel_043\myel_043_spine_seg.nii.gz"
 # lesions_mask_path = r"E:\DATA_Myelomy\Myel_043\Myel_043_lesions_seg.nii.gz"
 
@@ -73,10 +73,17 @@ import numpy as np
 
 
 # ----------------------------------------------------VISUALIZATION----------------------------------------------------
+# z_min, z_max = 60, 120
+# y_min, y_max = 405, 420
+# x_min, x_max = 200, 350
+#
+# mask = np.zeros_like(ct_image_data, dtype=np.uint8)
+# mask[x_min:x_max, y_min:y_max, z_min:z_max] = 1
+
 # show_individual_slices(ct_image_data)
 # show_slices_scroll(ct_image_data, axis=0, pause_time=0.01)
-# show_slices_scroll_with_mask(ct_image_data, vertebra_voxels, axis=0, pause_time=0.01)
-# show_slices_scroll_range_with_mask(ct_image_data, lesion_mask_data, axis=2 ,start=250, end=300)
+# show_slices_scroll_with_mask(ct_image_data, mask, axis=0, pause_time=0.01)
+# show_slices_scroll_range_with_mask(ct_image_data, mask, axis=0 ,start=190, end=360)
 
 
 
@@ -124,25 +131,25 @@ import numpy as np
 
 
 # ------------------------------------------------ NEW PARAMETRIC MAP --------------------------------------------------
-c_25 = Sitk.GetArrayFromImage(Sitk.ReadImage(r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_CaSupp_25.nii.gz"))
-vmi_40 = Sitk.GetArrayFromImage(Sitk.ReadImage(r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_monoe_40kev.nii.gz"))
-vmi_120 = Sitk.GetArrayFromImage(Sitk.ReadImage(r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_monoe_120kev.nii.gz"))
-I = Sitk.ReadImage(r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_CaSupp_25.nii.gz")
-
-c_25_slice = c_25[:, :, 265]
-vmi_40_slice = vmi_40[:, :, 265]
-vmi_120_slice = vmi_120[:, :, 265]
-
-new_slice = ((vmi_120_slice + vmi_40_slice) - c_25_slice)
-
-plt.subplot(131)
-plt.imshow(c_25_slice, cmap="gray", origin="lower")
-plt.subplot(132)
-plt.imshow(vmi_40_slice, cmap="gray", origin="lower")
-plt.subplot(133)
-plt.imshow(new_slice, cmap="gray", origin="lower")
-plt.title("New slice")
-plt.show()
+# c_25 = Sitk.GetArrayFromImage(Sitk.ReadImage(r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_CaSupp_25.nii.gz"))
+# vmi_40 = Sitk.GetArrayFromImage(Sitk.ReadImage(r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_monoe_40kev.nii.gz"))
+# vmi_120 = Sitk.GetArrayFromImage(Sitk.ReadImage(r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_monoe_120kev.nii.gz"))
+# I = Sitk.ReadImage(r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_CaSupp_25.nii.gz")
+#
+# c_25_slice = c_25[:, :, 265]
+# vmi_40_slice = vmi_40[:, :, 265]
+# vmi_120_slice = vmi_120[:, :, 265]
+#
+# new_slice = ((vmi_120_slice + vmi_40_slice) - c_25_slice)
+#
+# plt.subplot(131)
+# plt.imshow(c_25_slice, cmap="gray", origin="lower")
+# plt.subplot(132)
+# plt.imshow(vmi_40_slice, cmap="gray", origin="lower")
+# plt.subplot(133)
+# plt.imshow(new_slice, cmap="gray", origin="lower")
+# plt.title("New slice")
+# plt.show()
 
 # img_array = ((vmi_120 + vmi_40) - c_25)
 # img = Sitk.GetImageFromArray(img_array)
