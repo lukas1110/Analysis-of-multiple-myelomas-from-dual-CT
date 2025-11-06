@@ -73,9 +73,9 @@ import numpy as np
 
 
 # ----------------------------------------------------VISUALIZATION----------------------------------------------------
-# z_min, z_max = 60, 120
-# y_min, y_max = 405, 420
-# x_min, x_max = 200, 350
+# z_min, z_max = 450, 500
+# y_min, y_max = 250, 300
+# x_min, x_max = 150, 200
 #
 # mask = np.zeros_like(ct_image_data, dtype=np.uint8)
 # mask[x_min:x_max, y_min:y_max, z_min:z_max] = 1
@@ -83,7 +83,7 @@ import numpy as np
 # show_individual_slices(ct_image_data)
 # show_slices_scroll(ct_image_data, axis=0, pause_time=0.01)
 # show_slices_scroll_with_mask(ct_image_data, mask, axis=0, pause_time=0.01)
-# show_slices_scroll_range_with_mask(ct_image_data, mask, axis=0 ,start=190, end=360)
+# show_slices_scroll_range_with_mask(ct_image_data, mask, axis=0 ,start=150, end=200)
 
 
 
