@@ -29,7 +29,7 @@ def standardize_df(df) -> pd.DataFrame:
     return df_scaled
 
 
-def return_merged_lesions_csv(dir_path) -> dict[str, pd.DataFrame]:
+def merged_lesions_csv(dir_path) -> dict[str, pd.DataFrame]:
     all_csvs = glob.glob(os.path.join(dir_path, "*", "*spine_lesions*.csv"))
     csv_dict = defaultdict(list)
     result_dict = {}
@@ -51,7 +51,7 @@ def return_merged_lesions_csv(dir_path) -> dict[str, pd.DataFrame]:
     return result_dict
 
 
-def return_spearman_csv(merged_csv, clinical_path,
+def get_spearman_csv(merged_csv, clinical_path,
                         clinical_column_name='Beta2 microglobulin (mg/l)') -> dict[str, pd.DataFrame]:
     clinical_biomarkers_df = pd.read_csv(clinical_path, encoding="cp1252")
 
@@ -70,7 +70,7 @@ def return_spearman_csv(merged_csv, clinical_path,
     return result_dict
 
 
-def return_kruskal_wallis_csv(merged_csv, clinical_path) -> dict[str, pd.DataFrame]:
+def get_kruskal_wallis_csv(merged_csv, clinical_path) -> dict[str, pd.DataFrame]:
     pd.set_option('future.no_silent_downcasting', True)
     clinical_df = pd.read_csv(clinical_path, encoding="cp1252")
     clinical_df['Stage'] = clinical_df['ISS classification'].replace({'Stage 1': 1, 'Stage 2': 2, 'Stage 3': 3})
@@ -101,7 +101,7 @@ def return_kruskal_wallis_csv(merged_csv, clinical_path) -> dict[str, pd.DataFra
     return results_dict
 
 
-def return_filtered_features_spearman(merged_csv, spearman_csv,
+def filtered_features_spearman(merged_csv, spearman_csv,
                                       image_name=None, plot=False, threshold=0.75) -> dict[str, pd.DataFrame]:
     if image_name is not None:
         merged_csv = {image_name: merged_csv[image_name]}
@@ -141,7 +141,7 @@ def return_filtered_features_spearman(merged_csv, spearman_csv,
             axes[0].set_title(f"Correlation matrix\n(all significant features n={len(significant_features)})")
 
             final_corr_matrix = standardize_df(merged_df)[remaining_features].corr(method='spearman')
-            im2 = axes[1].imshow(final_corr_matrix, cmap='gray', vmin=-1, vmax=1)
+            _ = axes[1].imshow(final_corr_matrix, cmap='gray', vmin=-1, vmax=1)
             axes[1].set_title(f"Final correlation matrix\n(filtered features n={len(remaining_features)})")
 
             fig.colorbar(im1, ax=axes, orientation='horizontal', fraction=0.05, pad=0.05, label='Spearman correlation')
@@ -151,7 +151,7 @@ def return_filtered_features_spearman(merged_csv, spearman_csv,
     return result_dict
 
 
-def return_filtered_features_kruskal_wallis(merged_csv, kruskal_wallis_csv,
+def filtered_features_kruskal_wallis(merged_csv, kruskal_wallis_csv,
                                             image_name=None, plot=False, threshold=0.75) -> dict[str, pd.DataFrame]:
     if image_name is not None:
         merged_csv = {image_name: merged_csv[image_name]}
@@ -191,7 +191,7 @@ def return_filtered_features_kruskal_wallis(merged_csv, kruskal_wallis_csv,
             axes[0].set_title(f"Correlation matrix\n(all significant features n={len(significant_features)})")
 
             final_corr_matrix = standardize_df(merged_df)[remaining_features].corr(method='spearman')
-            im2 = axes[1].imshow(final_corr_matrix, cmap='gray', vmin=-1, vmax=1)
+            _ = axes[1].imshow(final_corr_matrix, cmap='gray', vmin=-1, vmax=1)
             axes[1].set_title(f"Final correlation matrix\n(filtered features n={len(remaining_features)})")
 
             fig.colorbar(im1, ax=axes, orientation='horizontal', fraction=0.05, pad=0.05, label='Spearman correlation')

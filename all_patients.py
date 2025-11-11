@@ -1,7 +1,7 @@
 import os
+import SimpleITK as Sitk
 from pathlib import Path
 from radiomics_features import RadiomicsFeatures
-import SimpleITK as Sitk
 
 
 class AllPatientsData:
