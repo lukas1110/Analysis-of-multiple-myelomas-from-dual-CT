@@ -2,10 +2,15 @@ import os
 import glob
 import numpy as np
 import pandas as pd
+import seaborn as sns
+from kneed import KneeLocator
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from scipy.stats import spearmanr, kruskal
 from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix
 
 
 base_dir_path = r"D:\DATA_Myelomy"
@@ -27,6 +32,15 @@ def standardize_df(df) -> pd.DataFrame:
                                    columns=df[numeric_features].columns,
                                    index=df[numeric_features].index)
     return df_scaled
+
+
+def add_stage_in_clinical_df(clinical_path) -> pd.DataFrame:
+    pd.set_option('future.no_silent_downcasting', True)
+    clinical_df = pd.read_csv(clinical_path, encoding="cp1252")
+    clinical_df['Stage'] = clinical_df['ISS classification'].replace({'Stage 1': 1, 'Stage 2': 2, 'Stage 3': 3})
+    clinical_df = clinical_df.dropna(subset=['Stage'])
+    clinical_df['Stage'] = clinical_df['Stage'].astype(int)
+    return clinical_df
 
 
 def merged_lesions_csv(dir_path) -> dict[str, pd.DataFrame]:
@@ -71,9 +85,7 @@ def get_spearman_csv(merged_csv, clinical_path,
 
 
 def get_kruskal_wallis_csv(merged_csv, clinical_path) -> dict[str, pd.DataFrame]:
-    pd.set_option('future.no_silent_downcasting', True)
-    clinical_df = pd.read_csv(clinical_path, encoding="cp1252")
-    clinical_df['Stage'] = clinical_df['ISS classification'].replace({'Stage 1': 1, 'Stage 2': 2, 'Stage 3': 3})
+    clinical_df = add_stage_in_clinical_df(clinical_path)
 
     results_dict = {}
     for csv_name, csv_df in merged_csv.items():
@@ -102,10 +114,11 @@ def get_kruskal_wallis_csv(merged_csv, clinical_path) -> dict[str, pd.DataFrame]
 
 
 def filtered_features_spearman(merged_csv, spearman_csv,
-                                      image_name=None, plot=False, threshold=0.75) -> dict[str, pd.DataFrame]:
+                                      image_name=None, plot=False, threshold=0.75) -> dict[str, list]:
     if image_name is not None:
         merged_csv = {image_name: merged_csv[image_name]}
         spearman_csv = {image_name: spearman_csv[image_name]}
+
     result_dict = {}
     for csv_name, (merged_df, spearman_df) in zip(merged_csv.keys(), zip(merged_csv.values(),
                                                                          spearman_csv.values())):
@@ -152,10 +165,11 @@ def filtered_features_spearman(merged_csv, spearman_csv,
 
 
 def filtered_features_kruskal_wallis(merged_csv, kruskal_wallis_csv,
-                                            image_name=None, plot=False, threshold=0.75) -> dict[str, pd.DataFrame]:
+                                            image_name=None, plot=False, threshold=0.75) -> dict[str, list]:
     if image_name is not None:
         merged_csv = {image_name: merged_csv[image_name]}
         kruskal_wallis_csv = {image_name: kruskal_wallis_csv[image_name]}
+
     result_dict = {}
     for csv_name, (merged_df, kruskal_wallis_df) in zip(merged_csv.keys(), zip(merged_csv.values(),
                                                                                kruskal_wallis_csv.values())):
@@ -199,3 +213,141 @@ def filtered_features_kruskal_wallis(merged_csv, kruskal_wallis_csv,
 
         result_dict[csv_name] = remaining_features
     return result_dict
+
+
+def random_forest_selected_features(merged_csv, clinical_path,
+                                    image_name=None, plot=False, test_size=0.2, n_trees=200) -> dict[str, list]:
+    clinical_df = add_stage_in_clinical_df(clinical_path)
+
+    if image_name is not None:
+        merged_csv = {image_name: merged_csv[image_name]}
+
+    result_dict = {}
+    for csv_name, merged_df in merged_csv.items():
+        features = merged_df.select_dtypes(include=['number'])
+        labels = clinical_df['Stage']
+
+        valid_idx = features.notna().all(axis=1) & labels.notna()
+        features = features[valid_idx]
+        labels = labels[valid_idx]
+
+        features_train, features_test, labels_train, labels_test = (
+            train_test_split(features, labels, test_size=test_size,random_state=42, stratify=labels))
+
+        rf = RandomForestClassifier(n_estimators=n_trees, random_state=42)
+        rf.fit(features_train, labels_train)
+
+        labels_pred = rf.predict(features_test)
+        acc = accuracy_score(labels_test, labels_pred)
+
+        feature_importance_df = (pd.DataFrame({'Feature': features.columns, 'Importance': rf.feature_importances_}
+                                              ).sort_values(by='Importance', ascending=False))
+
+        importance = np.sort(feature_importance_df['Importance'].values)[::-1]
+        x = np.arange(1, len(importance) + 1)
+
+        knee = KneeLocator(x, importance, curve='convex', direction='decreasing')
+        threshold = importance[knee.knee] if knee.knee is not None else None
+        selected_features = feature_importance_df[feature_importance_df['Importance'] > threshold]['Feature'].tolist()
+
+        if plot:
+            fig, axes = plt.subplots(1, 2, figsize=(16, 8))
+            fig.suptitle(f"Selected features from all possible features based on Random Forest "
+                         f"for {csv_name} with accuracy {acc:.3f}", fontsize=16, fontweight='bold')
+
+            cm = confusion_matrix(labels_test, labels_pred)
+            sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+                        xticklabels=[1, 2, 3], yticklabels=[1, 2, 3], ax=axes[0], cbar=False)
+            axes[0].set_xlabel("Predicted")
+            axes[0].set_ylabel("True label")
+            axes[0].set_title("Confusion Matrix")
+
+            axes[1].plot(x, importance, marker='o', label='Feature importance', color='tab:blue')
+            if threshold is not None:
+                axes[1].axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
+                axes[1].axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
+            axes[1].set_title("Feature Importance Curve")
+            axes[1].set_xlabel("Feature rank (sorted by importance)")
+            axes[1].set_ylabel("Importance")
+            axes[1].grid(True, linestyle='--', alpha=0.6)
+            axes[1].legend()
+
+            plt.tight_layout()
+            plt.show()
+
+        result_dict[csv_name] = selected_features
+    return result_dict
+
+
+def random_forest_significant_selected_features(merged_csv, kruskal_wallis_csv, clinical_path, image_name=None,
+                                                plot=False, test_size=0.2, n_trees=200) -> dict[str, list]:
+    clinical_df = add_stage_in_clinical_df(clinical_path)
+
+    if image_name is not None:
+        merged_csv = {image_name: merged_csv[image_name]}
+        kruskal_wallis_csv = {image_name: kruskal_wallis_csv[image_name]}
+
+    result_dict = {}
+    for csv_name, (merged_df, kruskal_wallis_df) in zip(merged_csv.keys(), zip(merged_csv.values(),
+                                                                               kruskal_wallis_csv.values())):
+        significant_features = return_significant_features(kruskal_wallis_df)
+        features = merged_df[significant_features].select_dtypes(include=['number'])
+        labels = clinical_df['Stage']
+
+        valid_idx = features.notna().all(axis=1) & labels.notna()
+        features = features[valid_idx]
+        labels = labels[valid_idx]
+
+        features_train, features_test, labels_train, labels_test = (
+            train_test_split(features, labels, test_size=test_size, random_state=42, stratify=labels))
+
+        rf = RandomForestClassifier(n_estimators=n_trees, random_state=42)
+        rf.fit(features_train, labels_train)
+
+        labels_pred = rf.predict(features_test)
+        acc = accuracy_score(labels_test, labels_pred)
+
+        feature_importance_df = (pd.DataFrame({'Feature': features.columns, 'Importance': rf.feature_importances_}
+                                              ).sort_values(by='Importance', ascending=False))
+
+        importance = np.sort(feature_importance_df['Importance'].values)[::-1]
+        x = np.arange(1, len(importance) + 1)
+
+        knee = KneeLocator(x, importance, curve='convex', direction='decreasing')
+        threshold = importance[knee.knee] if knee.knee is not None else None
+        selected_features = feature_importance_df[feature_importance_df['Importance'] > threshold]['Feature'].tolist()
+
+        if plot:
+            fig, axes = plt.subplots(1, 2, figsize=(16, 8))
+            fig.suptitle(f"Selected features from Significant features (K-W test) based on Random Forest "
+                         f"for {csv_name} with accuracy {acc:.3f}", fontsize=16, fontweight='bold')
+
+            cm = confusion_matrix(labels_test, labels_pred)
+            sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+                        xticklabels=[1, 2, 3], yticklabels=[1, 2, 3], ax=axes[0], cbar=False)
+            axes[0].set_xlabel("Predicted")
+            axes[0].set_ylabel("True label")
+            axes[0].set_title("Confusion Matrix")
+
+            axes[1].plot(x, importance, marker='o', label='Feature importance', color='tab:blue')
+            if threshold is not None:
+                axes[1].axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
+                axes[1].axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
+            axes[1].set_title("Feature Importance Curve")
+            axes[1].set_xlabel("Feature rank (sorted by importance)")
+            axes[1].set_ylabel("Importance")
+            axes[1].grid(True, linestyle='--', alpha=0.6)
+            axes[1].legend()
+
+            plt.tight_layout()
+            plt.show()
+
+        result_dict[csv_name] = selected_features
+    return result_dict
+
+
+def mutual_information_features(merged_csv, clinical_path, clinical_column_name) -> dict[str, list]:
+    pass
+
+
+
