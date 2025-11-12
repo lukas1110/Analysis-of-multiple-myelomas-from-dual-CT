@@ -11,6 +11,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
 
 
 base_dir_path = r"D:\DATA_Myelomy"
@@ -346,8 +347,52 @@ def random_forest_significant_selected_features(merged_csv, kruskal_wallis_csv, 
     return result_dict
 
 
-def mutual_information_features(merged_csv, clinical_path, clinical_column_name) -> dict[str, list]:
-    pass
+def mutual_information_selected_features(merged_csv, clinical_path, clinical_column_name,
+                                image_name=None, plot=False) -> dict[str, list]:
+    clinical_df = add_stage_in_clinical_df(clinical_path)
 
+    if image_name is not None:
+        merged_csv = {image_name: merged_csv[image_name]}
 
+    result_dict = {}
+    for csv_name, merged_df in merged_csv.items():
+        numeric_features = return_numeric_features(merged_df)
 
+        mutual_info_list = []
+        for col in numeric_features:
+            valid_idx = merged_df[col].notna() & clinical_df[clinical_column_name].notna()
+
+            feature = merged_df[[col]][valid_idx]
+            labels = clinical_df[clinical_column_name][valid_idx]
+
+            if clinical_column_name == 'Stage':
+                mi = mutual_info_classif(feature, labels, random_state=42)[0]
+            else:
+                mi = mutual_info_regression(feature, labels, random_state=42)[0]
+            mutual_info_list.append({'Feature': col, 'MI': mi})
+        mutual_information_df = pd.DataFrame(mutual_info_list).sort_values(by='MI',
+                                                                           ascending=False).reset_index(drop=True)
+
+        importance = np.sort(mutual_information_df['MI'].values)[::-1]
+        x = np.arange(1, len(importance) + 1)
+
+        knee = KneeLocator(x, importance, curve='convex', direction='decreasing')
+        threshold = importance[knee.knee] if knee.knee is not None else None
+        selected_features = mutual_information_df[mutual_information_df['MI'] > threshold]['Feature'].tolist()
+
+        if plot:
+            plt.figure(figsize=(10, 6))
+            plt.plot(x, importance, marker='o', label='Feature MI')
+            if threshold is not None:
+                plt.axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
+                plt.axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
+            plt.title(f"Mutual information curve for {csv_name} based on clinical: {clinical_column_name}")
+            plt.xlabel("Feature rank (sorted by MI)")
+            plt.ylabel("MI")
+            plt.grid(True, linestyle='--', alpha=0.6)
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+        result_dict[csv_name] = selected_features
+    return result_dict
