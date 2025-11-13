@@ -6,6 +6,7 @@ import seaborn as sns
 from kneed import KneeLocator
 import matplotlib.pyplot as plt
 from collections import defaultdict
+from sklearn.linear_model import Lasso
 from scipy.stats import spearmanr, kruskal
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -529,6 +530,118 @@ def mutual_information_selected_features(merged_csv, clinical_path, clinical_col
             plt.title(f"Mutual information curve for {csv_name} based on clinical: {clinical_column_name}")
             plt.xlabel("Feature rank (sorted by MI)")
             plt.ylabel("MI")
+            plt.grid(True, linestyle='--', alpha=0.6)
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+        result_dict[csv_name] = selected_features
+    return result_dict
+
+
+def lasso_regression_selected_features(merged_csv, clinical_path, clinical_column_name='Beta2 microglobulin (mg/l)',
+                                       alpha=0.01, image_name=None, plot=False) -> dict[str, list]:
+    clinical_df = pd.read_csv(clinical_path, encoding="cp1252")
+    clinical_scaled = standardize_df(clinical_df)
+
+    if image_name is not None:
+        merged_csv = {image_name: merged_csv[image_name]}
+
+    result_dict = {}
+    for csv_name, merged_df in merged_csv.items():
+        numeric_features = return_numeric_features(merged_df)
+        features_scaled = standardize_df(merged_df)
+
+        valid_idx = clinical_scaled[clinical_column_name].notna()
+        lasso = Lasso(alpha=alpha, random_state=42, max_iter=5000)
+
+        features = features_scaled[numeric_features][valid_idx]
+        labels = clinical_scaled[clinical_column_name][valid_idx]
+
+        lasso.fit(features, labels)
+        labels_pred = lasso.predict(features)
+
+        r2 = r2_score(labels, labels_pred)
+        mse = mean_squared_error(labels, labels_pred)
+        mae = mean_absolute_error(labels, labels_pred)
+
+        feature_weights_df = pd.DataFrame({'Feature': features.columns, 'Weight': lasso.coef_}
+                                          ).sort_values(by='Weight',ascending=False).reset_index(drop=True)
+
+        weights = np.sort(np.abs(feature_weights_df['Weight'].values))[::-1]
+        x = np.arange(1, len(weights) + 1)
+
+        knee = KneeLocator(x, weights, curve='convex', direction='decreasing')
+        threshold = weights[knee.knee] if knee.knee is not None else None
+        selected_features = feature_weights_df[feature_weights_df['Weight'].abs() > threshold]['Feature'].tolist()
+
+        if plot:
+            plt.figure(figsize=(10, 6))
+            plt.plot(x, weights, marker='o', label='Feature weight')
+            if threshold is not None:
+                plt.axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
+                plt.axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
+            plt.title(f"Feature weights curve for {csv_name}\nR²: {r2:.3f} || MSE: {mse:.3f} || MAE: {mae:.3f}")
+            plt.xlabel("Feature rank (sorted by weight)")
+            plt.ylabel("Weight")
+            plt.grid(True, linestyle='--', alpha=0.6)
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+        result_dict[csv_name] = selected_features
+    return result_dict
+
+
+def lasso_regression_significant_selected_features(merged_csv, spearman_csv, clinical_path,
+                                                   clinical_column_name='Beta2 microglobulin (mg/l)',
+                                                   alpha=0.01, image_name=None, plot=False) -> dict[str, list]:
+    clinical_df = pd.read_csv(clinical_path, encoding="cp1252")
+    clinical_scaled = standardize_df(clinical_df)
+
+    if image_name is not None:
+        merged_csv = {image_name: merged_csv[image_name]}
+        spearman_csv = {image_name: spearman_csv[image_name]}
+
+    result_dict = {}
+    for csv_name, (merged_df, spearman_df) in zip(merged_csv.keys(), zip(merged_csv.values(),
+                                                                         spearman_csv.values())):
+        significant_features = return_significant_features(spearman_df)
+        features_scaled = standardize_df(merged_df)
+
+        valid_idx = clinical_scaled[clinical_column_name].notna()
+        lasso = Lasso(alpha=alpha, random_state=42, max_iter=5000)
+
+        features = features_scaled[significant_features][valid_idx]
+        labels = clinical_scaled[clinical_column_name][valid_idx]
+
+        lasso.fit(features, labels)
+        labels_pred = lasso.predict(features)
+
+        r2 = r2_score(labels, labels_pred)
+        mse = mean_squared_error(labels, labels_pred)
+        mae = mean_absolute_error(labels, labels_pred)
+
+        feature_weights_df = pd.DataFrame({'Feature': features.columns, 'Weight': lasso.coef_}
+                                          ).sort_values(by='Weight', ascending=False).reset_index(drop=True)
+
+        weights = np.sort(np.abs(feature_weights_df['Weight'].values))[::-1]
+        x = np.arange(1, len(weights) + 1)
+
+        knee = KneeLocator(x, weights, curve='convex', direction='decreasing')
+        threshold = weights[knee.knee] if knee.knee is not None else None
+        selected_features = feature_weights_df[feature_weights_df['Weight'].abs() > threshold]['Feature'].tolist()
+
+        if plot:
+            plt.figure(figsize=(10, 6))
+            plt.plot(x, weights, marker='o', label='Feature weight')
+            if threshold is not None:
+                plt.axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
+                plt.axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
+            plt.title(f"Significant (Spearman) Feature weights curve for {csv_name}\n"
+                      f"R²: {r2:.3f} || MSE: {mse:.3f} || MAE: {mae:.3f}")
+            plt.xlabel("Feature rank (sorted by weight)")
+            plt.ylabel("Weight")
             plt.grid(True, linestyle='--', alpha=0.6)
             plt.legend()
             plt.tight_layout()
