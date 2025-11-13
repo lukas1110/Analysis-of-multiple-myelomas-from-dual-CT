@@ -115,6 +115,70 @@ def get_kruskal_wallis_csv(merged_csv, clinical_path) -> dict[str, pd.DataFrame]
     return results_dict
 
 
+def selected_spearman_features(spearman_csv, plot=False) -> dict[str, list]:
+    result_dict = {}
+    for csv_name, spearman_df in spearman_csv.items():
+        significant_features = return_significant_features(spearman_df)
+
+        importance = np.sort(
+            np.abs(spearman_df.loc[spearman_df['Feature'].isin(significant_features), 'spearman_corr'].values)
+        )[::-1]
+        x = np.arange(1, len(importance) + 1)
+
+        knee = KneeLocator(x, importance, curve='convex', direction='decreasing')
+        threshold = importance[knee.knee] if knee.knee is not None else None
+        selected_features = spearman_df[spearman_df['spearman_corr'].abs() > threshold]['Feature'].tolist()
+
+        if plot:
+            plt.figure(figsize=(10, 6))
+            plt.plot(x, importance, marker='o', label='Feature spearman_corr')
+            if threshold is not None:
+                plt.axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
+                plt.axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
+            plt.title(f"Selected Features for {csv_name} based on spearman_corr")
+            plt.xlabel("Feature rank (sorted by spearman_corr)")
+            plt.ylabel("spearman_corr")
+            plt.grid(True, linestyle='--', alpha=0.6)
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+        result_dict[csv_name] = selected_features
+    return result_dict
+
+
+def selected_kruskal_wallis_features(kruskal_wallis_csv, plot=False) -> dict[str, list]:
+    result_dict = {}
+    for csv_name, kruskal_wallis_df in kruskal_wallis_csv.items():
+        significant_features = return_significant_features(kruskal_wallis_df)
+
+        importance = np.sort(
+            np.abs(kruskal_wallis_df.loc[kruskal_wallis_df['Feature'].isin(significant_features), 'H_all'].values)
+        )[::-1]
+        x = np.arange(1, len(importance) + 1)
+
+        knee = KneeLocator(x, importance, curve='convex', direction='decreasing')
+        threshold = importance[knee.knee] if knee.knee is not None else None
+        selected_features = kruskal_wallis_df[kruskal_wallis_df['H_all'].abs() > threshold]['Feature'].tolist()
+
+        if plot:
+            plt.figure(figsize=(10, 6))
+            plt.plot(x, importance, marker='o', label='Feature H_all')
+            if threshold is not None:
+                plt.axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
+                plt.axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
+            plt.title(f"Selected Features for {csv_name} based on H_all")
+            plt.xlabel("Feature rank (sorted by H_all)")
+            plt.ylabel("H_all")
+            plt.grid(True, linestyle='--', alpha=0.6)
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+        result_dict[csv_name] = selected_features
+    return result_dict
+
+
 def filtered_features_spearman(merged_csv, spearman_csv,
                                       image_name=None, plot=False, threshold=0.75) -> dict[str, list]:
     if image_name is not None:
