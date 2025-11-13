@@ -7,7 +7,9 @@ from kneed import KneeLocator
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from sklearn.linear_model import Lasso
+from feature_engine.selection import MRMR
 from scipy.stats import spearmanr, kruskal
+from mrmr import mrmr_classif, mrmr_regression
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -713,3 +715,172 @@ def lasso_regression_significant_selected_features(merged_csv, spearman_csv, cli
 
         result_dict[csv_name] = selected_features
     return result_dict
+
+
+def mrmr_classification_selected_features(merged_csv, clinical_path, n_top_features=20,
+                                          plot=False, image_name=None) -> dict[str, list]:
+    clinical_df = add_stage_in_clinical_df(clinical_path)
+
+    if image_name is not None:
+        merged_csv = {image_name: merged_csv[image_name]}
+
+    result_dict = {}
+    for csv_name, merged_df in merged_csv.items():
+        temp_df = pd.merge(merged_df, clinical_df[['Patient ID', 'Stage']],
+                             left_on='patient', right_on='Patient ID', how='inner')
+
+        numeric_features = return_numeric_features(temp_df)
+        features = temp_df[numeric_features].drop(columns=['Stage'], errors='ignore')
+        labels = temp_df['Stage']
+
+        valid_idx = features.notna().all(axis=1) & labels.notna()
+        features, labels = features[valid_idx], labels[valid_idx]
+
+        df_mrmr = standardize_df(features).copy()
+        df_mrmr['Stage'] = labels.values
+        selected_features = mrmr_classif(X=df_mrmr.drop(columns='Stage'), y=df_mrmr['Stage'], K=n_top_features)
+
+        if plot:
+            selected_df = standardize_df(features)[selected_features]
+            corr_matrix = selected_df.corr(method='spearman')
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(corr_matrix, cmap='coolwarm', vmin=-1, vmax=1, annot=False)
+            plt.title(f"Spearman correlation between MRMR-selected features for {csv_name}")
+            plt.tight_layout()
+            plt.show()
+
+        result_dict[csv_name] = selected_features
+    return result_dict
+
+
+def mrmr_classification_significant_selected_features(merged_csv, kruskal_wallis_csv, clinical_path,
+                                                      n_top_features, plot=False, image_name=None) -> dict[str, list]:
+    clinical_df = add_stage_in_clinical_df(clinical_path)
+
+    if image_name is not None:
+        merged_csv = {image_name: merged_csv[image_name]}
+        kruskal_wallis_csv = {image_name: kruskal_wallis_csv[image_name]}
+
+    result_dict = {}
+    for csv_name, (merged_df, kruskal_wallis_df) in zip(merged_csv.keys(), zip(merged_csv.values(),
+                                                                         kruskal_wallis_csv.values())):
+        temp_df = pd.merge(merged_df, clinical_df[['Patient ID', 'Stage']],
+                           left_on='patient', right_on='Patient ID', how='inner')
+
+        significant_features = return_significant_features(kruskal_wallis_df)
+        features = temp_df[significant_features].drop(columns=['Stage'], errors='ignore')
+        labels = temp_df['Stage']
+
+        valid_idx = features.notna().all(axis=1) & labels.notna()
+        features, labels = features[valid_idx], labels[valid_idx]
+
+        df_mrmr = standardize_df(features).copy()
+        df_mrmr['Stage'] = labels.values
+        selected_features = mrmr_classif(X=df_mrmr.drop(columns='Stage'), y=df_mrmr['Stage'], K=n_top_features)
+
+        if plot:
+            selected_df = standardize_df(features)[selected_features]
+            corr_matrix = selected_df.corr(method='spearman')
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(corr_matrix, cmap='coolwarm', vmin=-1, vmax=1, annot=False)
+            plt.title(f"Spearman correlation between MRMR-selected Significant features for {csv_name}")
+            plt.tight_layout()
+            plt.show()
+
+        result_dict[csv_name] = selected_features
+    return result_dict
+
+
+def mrmr_fe_classification_selected_features(merged_csv, clinical_path, n_top_features=20,
+                                          plot=False, image_name=None) -> dict[str, list]:
+    clinical_df = add_stage_in_clinical_df(clinical_path)
+
+    if image_name is not None:
+        merged_csv = {image_name: merged_csv[image_name]}
+
+    result_dict = {}
+    for csv_name, merged_df in merged_csv.items():
+        temp_df = pd.merge(merged_df, clinical_df[['Patient ID', 'Stage']],
+                           left_on='patient', right_on='Patient ID', how='inner')
+
+        numeric_features = return_numeric_features(temp_df)
+        features = temp_df[numeric_features].drop(columns=['Stage'], errors='ignore')
+        labels = temp_df['Stage']
+
+        valid_idx = features.notna().all(axis=1) & labels.notna()
+        features, labels = features[valid_idx], labels[valid_idx]
+
+        selector = MRMR(method='MIQ', max_features=n_top_features)
+        selector.fit(standardize_df(features), labels)
+        selected_features = selector.transform(standardize_df(features)).columns.tolist()
+
+        if plot:
+            selected_df = standardize_df(features)[selected_features]
+            corr_matrix = selected_df.corr(method='spearman')
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(corr_matrix, cmap='coolwarm', vmin=-1, vmax=1, annot=False)
+            plt.title(f"Spearman correlation between MRMR-selected features for {csv_name}")
+            plt.tight_layout()
+            plt.show()
+
+        result_dict[csv_name] = selected_features
+    return result_dict
+
+
+def mrmr_fe_classification_significant_selected_features(merged_csv, kruskal_wallis_csv, clinical_path,
+                                                      n_top_features, plot=False, image_name=None) -> dict[str, list]:
+    clinical_df = add_stage_in_clinical_df(clinical_path)
+
+    if image_name is not None:
+        merged_csv = {image_name: merged_csv[image_name]}
+        kruskal_wallis_csv = {image_name: kruskal_wallis_csv[image_name]}
+
+    result_dict = {}
+    for csv_name, (merged_df, kruskal_wallis_df) in zip(merged_csv.keys(), zip(merged_csv.values(),
+                                                                               kruskal_wallis_csv.values())):
+        temp_df = pd.merge(merged_df, clinical_df[['Patient ID', 'Stage']],
+                           left_on='patient', right_on='Patient ID', how='inner')
+
+        significant_features = return_significant_features(kruskal_wallis_df)
+        features = temp_df[significant_features].drop(columns=['Stage'], errors='ignore')
+        labels = temp_df['Stage']
+
+        valid_idx = features.notna().all(axis=1) & labels.notna()
+        features, labels = features[valid_idx], labels[valid_idx]
+
+        selector = MRMR(method='MIQ', max_features=n_top_features)
+        selector.fit(standardize_df(features), labels)
+        selected_features = selector.transform(standardize_df(features)).columns.tolist()
+
+        if plot:
+            selected_df = standardize_df(features)[selected_features]
+            corr_matrix = selected_df.corr(method='spearman')
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(corr_matrix, cmap='coolwarm', vmin=-1, vmax=1, annot=False)
+            plt.title(f"Spearman correlation between MRMR-selected Significant features for {csv_name}")
+            plt.tight_layout()
+            plt.show()
+
+        result_dict[csv_name] = selected_features
+    return result_dict
+
+
+
+m = merged_lesions_csv(base_dir_path)
+kw = get_kruskal_wallis_csv(m , clinical_biomarkers_path)
+print(mrmr_fe_classification_significant_selected_features(m,kw, clinical_biomarkers_path, n_top_features=10, plot=True))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
