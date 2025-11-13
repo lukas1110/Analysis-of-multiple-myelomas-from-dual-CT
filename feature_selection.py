@@ -1,3 +1,4 @@
+import re
 import os
 import glob
 import numpy as np
@@ -36,6 +37,18 @@ def standardize_df(df) -> pd.DataFrame:
                                    columns=df[numeric_features].columns,
                                    index=df[numeric_features].index)
     return df_scaled
+
+
+def extract_group(feature_name: str) -> str:
+    patterns = [r"^gradient_firstorder", r"^gradient_glcm", r"^gradient_glrlm",
+                r"^gradient_glszm", r"^gradient_gldm", r"^gradient_ngtdm",
+                r"^original_firstorder", r"^original_glcm", r"^original_glrlm",
+                r"^original_glszm", r"^original_gldm", r"^original_ngtdm", r"^shape"]
+
+    for p in patterns:
+        if re.match(p, feature_name):
+            return p.replace("^", "")
+    return "other"
 
 
 def add_stage_in_clinical_df(clinical_path) -> pd.DataFrame:
@@ -178,6 +191,38 @@ def selected_kruskal_wallis_features(kruskal_wallis_csv, plot=False) -> dict[str
             plt.show()
 
         result_dict[csv_name] = selected_features
+    return result_dict
+
+
+def best_feature_from_each_feature_group(significant_csv):
+    filtered_dfs = []
+    for csv_name, significant_df in significant_csv.items():
+        temp = significant_df[significant_df['p_value'] < 0.05][['Feature', 'p_value']].copy()
+        temp.rename(columns={'p_value': csv_name}, inplace=True)
+        filtered_dfs.append(temp)
+
+    merged_df = filtered_dfs[0]
+    for temp in filtered_dfs[1:]:
+        merged_df = pd.merge(merged_df, temp, on='Feature', how='outer')
+
+    merged_df = merged_df.sort_values(by='Feature').reset_index(drop=True)
+    merged_df['Group'] = merged_df['Feature'].apply(extract_group)
+    merged_df = merged_df.sort_values(by=['Group', 'Feature']).reset_index(drop=True)
+
+    image_columns = [col for col in merged_df.columns if col not in ["Feature", "Group"]]
+
+    result_dict = {}
+    for image in image_columns:
+        selected_features = []
+        for group, group_df in merged_df.groupby("Group"):
+
+            valid_rows = group_df.dropna(subset=[image])
+            if valid_rows.empty:
+                continue
+
+            best_feature = valid_rows.loc[valid_rows[image].idxmin(), "Feature"]
+            selected_features.append(best_feature)
+        result_dict[image] = selected_features
     return result_dict
 
 
