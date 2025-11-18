@@ -1033,7 +1033,3 @@ def mrmr_regression_significant_selected_features(merged_csv, spearman_csv, clin
 
         result_dict[csv_name] = selected_features
     return result_dict
-
-m = merged_lesions_csv(base_dir_path)
-s = get_spearman_csv(m, clinical_biomarkers_path)
-print(lasso_regression_significant_selected_features(m,s, clinical_biomarkers_path, plot=True))
