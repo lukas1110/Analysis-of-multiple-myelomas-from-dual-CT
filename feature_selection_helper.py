@@ -461,7 +461,7 @@ def random_forest_regressor_selected_features(merged_csv, clinical_path,
 
 
 def random_forest_classifier_significant_selected_features(merged_csv, kruskal_wallis_csv, clinical_path, image_name=None,
-                                                plot=False, test_size=0.2, n_trees=200) -> dict[str, list]:
+                                                plot=False, n_trees=200) -> dict[str, list]:
     clinical_df = add_stage_in_clinical_df(clinical_path)
 
     if image_name is not None:
@@ -479,14 +479,11 @@ def random_forest_classifier_significant_selected_features(merged_csv, kruskal_w
         features = features[valid_idx]
         labels = labels[valid_idx]
 
-        features_train, features_test, labels_train, labels_test = (
-            train_test_split(features, labels, test_size=test_size, random_state=42, stratify=labels))
-
         rf = RandomForestClassifier(n_estimators=n_trees, random_state=42)
-        rf.fit(features_train, labels_train)
+        rf.fit(features, labels)
 
-        labels_pred = rf.predict(features_test)
-        acc = accuracy_score(labels_test, labels_pred)
+        labels_pred = rf.predict(features)
+        acc = accuracy_score(labels, labels_pred)
 
         feature_importance_df = (pd.DataFrame({'Feature': features.columns, 'Importance': rf.feature_importances_}
                                               ).sort_values(by='Importance', ascending=False))
@@ -503,7 +500,7 @@ def random_forest_classifier_significant_selected_features(merged_csv, kruskal_w
             fig.suptitle(f"Selected features from Significant features (K-W test) based on Random Forest "
                          f"for {csv_name} with accuracy {acc:.3f}", fontsize=16, fontweight='bold')
 
-            cm = confusion_matrix(labels_test, labels_pred)
+            cm = confusion_matrix(labels, labels_pred)
             sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
                         xticklabels=[1, 2, 3], yticklabels=[1, 2, 3], ax=axes[0], cbar=False)
             axes[0].set_xlabel("Predicted")
@@ -528,7 +525,7 @@ def random_forest_classifier_significant_selected_features(merged_csv, kruskal_w
 
 
 def random_forest_regressor_significant_selected_features(merged_csv, spearman_csv, clinical_path, image_name=None,
-                                                plot=False, test_size=0.2, n_trees=200) -> dict[str, list]:
+                                                plot=False, n_trees=200) -> dict[str, list]:
     clinical_df = add_stage_in_clinical_df(clinical_path)
 
     if image_name is not None:
@@ -546,16 +543,13 @@ def random_forest_regressor_significant_selected_features(merged_csv, spearman_c
         features = features[valid_idx]
         labels = labels[valid_idx]
 
-        features_train, features_test, labels_train, labels_test = (
-            train_test_split(features, labels, test_size=test_size, random_state=42))
-
         rf = RandomForestRegressor(n_estimators=n_trees, random_state=42)
-        rf.fit(features_train, labels_train)
+        rf.fit(features, labels)
 
-        labels_pred = rf.predict(features_test)
-        r2 = r2_score(labels_test, labels_pred)
-        mse = mean_squared_error(labels_test, labels_pred)
-        mae = mean_absolute_error(labels_test, labels_pred)
+        labels_pred = rf.predict(features)
+        r2 = r2_score(labels, labels_pred)
+        mse = mean_squared_error(labels, labels_pred)
+        mae = mean_absolute_error(labels, labels_pred)
 
         feature_importance_df = (pd.DataFrame({'Feature': features.columns, 'Importance': rf.feature_importances_}
                                               ).sort_values(by='Importance', ascending=False))
@@ -574,9 +568,9 @@ def random_forest_regressor_significant_selected_features(merged_csv, spearman_c
                 f"for {csv_name} with R²: {r2:.3f}  |  MSE: {mse:.3f}  |  MAE: {mae:.3f}", fontsize=16,
                 fontweight='bold')
 
-            axes[0].scatter(labels_test, labels_pred, alpha=0.7)
-            axes[0].plot([labels_test.min(), labels_test.max()],
-                         [labels_test.min(), labels_test.max()],
+            axes[0].scatter(labels, labels_pred, alpha=0.7)
+            axes[0].plot([labels.min(), labels.max()],
+                         [labels.min(), labels.max()],
                          'r--', lw=2)
             axes[0].set_xlabel("True values")
             axes[0].set_ylabel("Predicted values")
@@ -687,16 +681,29 @@ def lasso_regression_selected_features(merged_csv, clinical_path, clinical_colum
         selected_features = feature_weights_df[feature_weights_df['Weight'].abs() > threshold]['Feature'].tolist()
 
         if plot:
-            plt.figure(figsize=(10, 6))
-            plt.plot(x, weights, marker='o', label='Feature weight')
+            fig, axes = plt.subplots(1, 2, figsize=(16, 8))
+            fig.suptitle(
+                f"Selected features from Lasso for {csv_name} with \n"
+                f"R²: {r2:.3f}  |  MSE: {mse:.3f}  |  MAE: {mae:.3f}", fontsize=16, fontweight='bold')
+
+            axes[0].scatter(labels, labels_pred, alpha=0.7)
+            axes[0].plot([labels.min(), labels.max()],
+                         [labels.min(), labels.max()],
+                         'r--', lw=2)
+            axes[0].set_xlabel("True values")
+            axes[0].set_ylabel("Predicted values")
+            axes[0].set_title("True vs Predicted (Regression)")
+
+            axes[1].plot(x, weights, marker='o', label='Feature weights', color='tab:blue')
             if threshold is not None:
-                plt.axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
-                plt.axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
-            plt.title(f"Feature weights curve for {csv_name}\nR²: {r2:.3f} || MSE: {mse:.3f} || MAE: {mae:.3f}")
-            plt.xlabel("Feature rank (sorted by weight)")
-            plt.ylabel("Weight")
-            plt.grid(True, linestyle='--', alpha=0.6)
-            plt.legend()
+                axes[1].axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
+                axes[1].axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
+            axes[1].set_title("Feature Weights Curve")
+            axes[1].set_xlabel("Feature rank (sorted by importance)")
+            axes[1].set_ylabel("Weights")
+            axes[1].grid(True, linestyle='--', alpha=0.6)
+            axes[1].legend()
+
             plt.tight_layout()
             plt.show()
 
@@ -744,17 +751,29 @@ def lasso_regression_significant_selected_features(merged_csv, spearman_csv, cli
         selected_features = feature_weights_df[feature_weights_df['Weight'].abs() > threshold]['Feature'].tolist()
 
         if plot:
-            plt.figure(figsize=(10, 6))
-            plt.plot(x, weights, marker='o', label='Feature weight')
+            fig, axes = plt.subplots(1, 2, figsize=(16, 8))
+            fig.suptitle(
+                f"Significant (Spearman) Selected features from Lasso for {csv_name} with \n"
+                f"R²: {r2:.3f}  |  MSE: {mse:.3f}  |  MAE: {mae:.3f}", fontsize=16, fontweight='bold')
+
+            axes[0].scatter(labels, labels_pred, alpha=0.7)
+            axes[0].plot([labels.min(), labels.max()],
+                         [labels.min(), labels.max()],
+                         'r--', lw=2)
+            axes[0].set_xlabel("True values")
+            axes[0].set_ylabel("Predicted values")
+            axes[0].set_title("True vs Predicted (Regression)")
+
+            axes[1].plot(x, weights, marker='o', label='Feature weights', color='tab:blue')
             if threshold is not None:
-                plt.axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
-                plt.axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
-            plt.title(f"Significant (Spearman) Feature weights curve for {csv_name}\n"
-                      f"R²: {r2:.3f} || MSE: {mse:.3f} || MAE: {mae:.3f}")
-            plt.xlabel("Feature rank (sorted by weight)")
-            plt.ylabel("Weight")
-            plt.grid(True, linestyle='--', alpha=0.6)
-            plt.legend()
+                axes[1].axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
+                axes[1].axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
+            axes[1].set_title("Feature Weights Curve")
+            axes[1].set_xlabel("Feature rank (sorted by importance)")
+            axes[1].set_ylabel("Weights")
+            axes[1].grid(True, linestyle='--', alpha=0.6)
+            axes[1].legend()
+
             plt.tight_layout()
             plt.show()
 
@@ -985,81 +1004,3 @@ def mrmr_regression_significant_selected_features(merged_csv, spearman_csv, clin
 
         result_dict[csv_name] = selected_features
     return result_dict
-
-
-
-
-merged = merged_lesions_csv(base_dir_path)
-spearman = get_spearman_csv(merged, clinical_biomarkers_path)
-kw = get_kruskal_wallis_csv(merged, clinical_biomarkers_path)
-
-# Best features without correlation between them
-selected_kw = selected_kruskal_wallis_features(kw)
-selected_spearman = selected_spearman_features(spearman)
-best_one_group_kw = best_feature_from_each_feature_group(kw)
-best_one_group_spearman = best_feature_from_each_feature_group(spearman)
-rf_significant_kw = random_forest_classifier_significant_selected_features(merged, kw, clinical_biomarkers_path)
-rf_significant_spearman = random_forest_regressor_significant_selected_features(merged, spearman, clinical_biomarkers_path)
-lasso_significant_spearman = lasso_regression_significant_selected_features(merged, spearman, clinical_biomarkers_path)
-
-rf_class_all = random_forest_classifier_selected_features(merged, clinical_biomarkers_path)
-rf_reg_all = random_forest_regressor_selected_features(merged, clinical_biomarkers_path)
-lasso_all = lasso_regression_selected_features(merged, clinical_biomarkers_path)
-mi_class_all = mutual_information_selected_features(merged, clinical_biomarkers_path)
-mi_reg_all = mutual_information_selected_features(merged, clinical_biomarkers_path, clinical_column_name='Stage')
-
-
-
-all_dicts = [selected_kw, selected_spearman, best_one_group_kw, best_one_group_spearman, rf_significant_kw, rf_significant_spearman,
-             lasso_significant_spearman, rf_class_all, rf_reg_all, lasso_all, mi_class_all, mi_reg_all]
-
-dataset_names = all_dicts[0].keys()
-result = {ds: Counter() for ds in dataset_names}
-for d in all_dicts:
-    for dataset_name, feature_list in d.items():
-        result[dataset_name].update(feature_list)
-
-tables = {}
-for dataset_name, counter in result.items():
-    df = pd.DataFrame(counter.items(), columns=["Feature", "Count"])
-    df = df.sort_values("Count", ascending=False).reset_index(drop=True)
-    tables[dataset_name] = df
-
-# Best features merged through methods
-for name, df in tables.items():
-    print(f"----------------------------{name}-----------------------------------")
-    print(df[df["Count"] > 1])
-    print()
-
-
-
-filtered_kw = filtered_features_kruskal_wallis(merged, kw)
-filtered_spearman = filtered_features_spearman(merged, spearman)
-mrmr_significant_class_01 = mrmr_classification_significant_selected_features(merged, kw, clinical_biomarkers_path)
-mrmr_significant_class_02 = mrmr_fe_classification_significant_selected_features(merged, kw, clinical_biomarkers_path)
-mrmr_significant_reg = mrmr_regression_significant_selected_features(merged, spearman, clinical_biomarkers_path)
-mrmr_all_class_01 = mrmr_classification_selected_features(merged, clinical_biomarkers_path)
-mrmr_all_class_02 = mrmr_fe_classification_selected_features(merged, clinical_biomarkers_path)
-mrmr_all_reg = mrmr_regression_selected_features(merged, clinical_biomarkers_path)
-
-all_dicts = [filtered_kw, filtered_spearman, mrmr_significant_class_01, mrmr_significant_class_02, mrmr_significant_reg,
-             mrmr_all_class_01, mrmr_all_class_02, mrmr_all_reg]
-
-dataset_names = all_dicts[0].keys()
-result = {ds: Counter() for ds in dataset_names}
-for d in all_dicts:
-    for dataset_name, feature_list in d.items():
-        result[dataset_name].update(feature_list)
-
-tables = {}
-for dataset_name, counter in result.items():
-    df = pd.DataFrame(counter.items(), columns=["Feature", "Count"])
-    df = df.sort_values("Count", ascending=False).reset_index(drop=True)
-    tables[dataset_name] = df
-
-# NOT REDUNDANT features merged through methods
-for name, df in tables.items():
-    print(f"----------------------------{name}-----------------------------------")
-    print(df[df["Count"] > 1])
-    print()
-
