@@ -369,11 +369,24 @@ def random_forest_classifier_selected_features(merged_csv, clinical_path,
                          f"for {csv_name} with accuracy {acc:.3f}", fontsize=16, fontweight='bold')
 
             cm = confusion_matrix(labels_test, labels_pred)
+
+            class_accuracies = []
+            for i in range(len(cm)):
+                total = cm[i].sum()
+                correct = cm[i, i]
+                acc = correct / total if total > 0 else 0
+                class_accuracies.append(acc)
+
+            accuracy_text = " | ".join([
+                f"Stage {i + 1}: {class_accuracies[i] * 100:.1f}%"
+                for i in range(len(class_accuracies))
+            ])
+
             sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
                         xticklabels=[1, 2, 3], yticklabels=[1, 2, 3], ax=axes[0], cbar=False)
             axes[0].set_xlabel("Predicted")
             axes[0].set_ylabel("True label")
-            axes[0].set_title("Confusion Matrix")
+            axes[0].set_title(f"Confusion Matrix\n{accuracy_text}")
 
             axes[1].plot(x, importance, marker='o', label='Feature importance', color='tab:blue')
             if threshold is not None:
@@ -461,7 +474,7 @@ def random_forest_regressor_selected_features(merged_csv, clinical_path,
 
 
 def random_forest_classifier_significant_selected_features(merged_csv, kruskal_wallis_csv, clinical_path, image_name=None,
-                                                plot=False, n_trees=200) -> dict[str, list]:
+                                                plot=False, test_size=0.2, n_trees=200) -> dict[str, list]:
     clinical_df = add_stage_in_clinical_df(clinical_path)
 
     if image_name is not None:
@@ -479,11 +492,14 @@ def random_forest_classifier_significant_selected_features(merged_csv, kruskal_w
         features = features[valid_idx]
         labels = labels[valid_idx]
 
-        rf = RandomForestClassifier(n_estimators=n_trees, random_state=42)
-        rf.fit(features, labels)
+        features_train, features_test, labels_train, labels_test = (
+            train_test_split(features, labels, test_size=test_size, random_state=42, stratify=labels))
 
-        labels_pred = rf.predict(features)
-        acc = accuracy_score(labels, labels_pred)
+        rf = RandomForestClassifier(n_estimators=n_trees, random_state=42)
+        rf.fit(features_train, labels_train)
+
+        labels_pred = rf.predict(features_test)
+        acc = accuracy_score(labels_test, labels_pred)
 
         feature_importance_df = (pd.DataFrame({'Feature': features.columns, 'Importance': rf.feature_importances_}
                                               ).sort_values(by='Importance', ascending=False))
@@ -500,12 +516,25 @@ def random_forest_classifier_significant_selected_features(merged_csv, kruskal_w
             fig.suptitle(f"Selected features from Significant features (K-W test) based on Random Forest "
                          f"for {csv_name} with accuracy {acc:.3f}", fontsize=16, fontweight='bold')
 
-            cm = confusion_matrix(labels, labels_pred)
+            cm = confusion_matrix(labels_test, labels_pred)
+
+            class_accuracies = []
+            for i in range(len(cm)):
+                total = cm[i].sum()
+                correct = cm[i, i]
+                acc = correct / total if total > 0 else 0
+                class_accuracies.append(acc)
+
+            accuracy_text = " | ".join([
+                f"Stage {i + 1}: {class_accuracies[i] * 100:.1f}%"
+                for i in range(len(class_accuracies))
+            ])
+
             sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
                         xticklabels=[1, 2, 3], yticklabels=[1, 2, 3], ax=axes[0], cbar=False)
             axes[0].set_xlabel("Predicted")
             axes[0].set_ylabel("True label")
-            axes[0].set_title("Confusion Matrix")
+            axes[0].set_title(f"Confusion Matrix\n{accuracy_text}")
 
             axes[1].plot(x, importance, marker='o', label='Feature importance', color='tab:blue')
             if threshold is not None:
@@ -1004,3 +1033,7 @@ def mrmr_regression_significant_selected_features(merged_csv, spearman_csv, clin
 
         result_dict[csv_name] = selected_features
     return result_dict
+
+m = merged_lesions_csv(base_dir_path)
+s = get_spearman_csv(m, clinical_biomarkers_path)
+print(lasso_regression_significant_selected_features(m,s, clinical_biomarkers_path, plot=True))
