@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import Lasso
 from feature_engine.selection import MRMR
 from scipy.stats import spearmanr, kruskal
-from collections import defaultdict, Counter
+from collections import defaultdict
 from mrmr import mrmr_classif, mrmr_regression
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -21,15 +21,15 @@ from sklearn.metrics import accuracy_score, confusion_matrix, r2_score, mean_squ
 base_dir_path = r"D:\DATA_Myelomy"
 clinical_biomarkers_path = r"D:\Clinical_data\Table_clinical_data.csv"
 
-
+### DONE ###
 def return_numeric_features(df) -> list[str]:
     return df.select_dtypes(include=['number']).columns.tolist()
 
-
+### DONE ###
 def return_significant_features(df) -> list[str]:
     return df.loc[df['p_value'] < 0.05, 'Feature'].tolist()
 
-
+### DONE ###
 def standardize_df(df) -> pd.DataFrame:
     scaler = StandardScaler()
     numeric_features = return_numeric_features(df)
@@ -38,7 +38,7 @@ def standardize_df(df) -> pd.DataFrame:
                                    index=df[numeric_features].index)
     return df_scaled
 
-
+### DONE ###
 def extract_group(feature_name: str) -> str:
     patterns = [r"^gradient_firstorder", r"^gradient_glcm", r"^gradient_glrlm",
                 r"^gradient_glszm", r"^gradient_gldm", r"^gradient_ngtdm",
@@ -50,7 +50,7 @@ def extract_group(feature_name: str) -> str:
             return p.replace("^", "")
     return "other"
 
-
+### DONE ###
 def add_stage_in_clinical_df(clinical_path) -> pd.DataFrame:
     pd.set_option('future.no_silent_downcasting', True)
     clinical_df = pd.read_csv(clinical_path, encoding="cp1252")
@@ -59,7 +59,7 @@ def add_stage_in_clinical_df(clinical_path) -> pd.DataFrame:
     clinical_df['Stage'] = clinical_df['Stage'].astype(int)
     return clinical_df
 
-
+### DONE ###
 def merged_lesions_csv(dir_path) -> dict[str, pd.DataFrame]:
     all_csvs = glob.glob(os.path.join(dir_path, "*", "*spine_lesions*.csv"))
     csv_dict = defaultdict(list)
@@ -81,7 +81,7 @@ def merged_lesions_csv(dir_path) -> dict[str, pd.DataFrame]:
         result_dict[key_name] = big_df
     return result_dict
 
-
+### DONE ###
 def get_spearman_csv(merged_csv, clinical_path,
                         clinical_column_name='Beta2 microglobulin (mg/l)') -> dict[str, pd.DataFrame]:
     clinical_biomarkers_df = pd.read_csv(clinical_path, encoding="cp1252")
@@ -100,7 +100,7 @@ def get_spearman_csv(merged_csv, clinical_path,
         result_dict[csv_name] = spearman_df
     return result_dict
 
-
+### DONE ###
 def get_kruskal_wallis_csv(merged_csv, clinical_path) -> dict[str, pd.DataFrame]:
     clinical_df = add_stage_in_clinical_df(clinical_path)
 
@@ -129,7 +129,7 @@ def get_kruskal_wallis_csv(merged_csv, clinical_path) -> dict[str, pd.DataFrame]
         results_dict[csv_name] = kruskal_wallis_df
     return results_dict
 
-
+### DONE ###
 def selected_spearman_features(spearman_csv, plot=False) -> dict[str, list]:
     result_dict = {}
     for csv_name, spearman_df in spearman_csv.items():
@@ -161,7 +161,7 @@ def selected_spearman_features(spearman_csv, plot=False) -> dict[str, list]:
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+### DONE ###
 def selected_kruskal_wallis_features(kruskal_wallis_csv, plot=False) -> dict[str, list]:
     result_dict = {}
     for csv_name, kruskal_wallis_df in kruskal_wallis_csv.items():
@@ -193,7 +193,7 @@ def selected_kruskal_wallis_features(kruskal_wallis_csv, plot=False) -> dict[str
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+### DONE ###
 def best_feature_from_each_feature_group(significant_csv):
     filtered_dfs = []
     for csv_name, significant_df in significant_csv.items():
