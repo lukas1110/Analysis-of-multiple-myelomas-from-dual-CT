@@ -66,4 +66,38 @@ class Spearman(Dataset):
     def __init__(self, base_path: str) -> None:
         super().__init__(base_path)
 
+    def _spearman_dfs(self, merged: dict[str, pd.DataFrame], clinical_path: str,
+                      clinical_column: str='Beta2 microglobulin (mg/l)') -> dict[str, pd.DataFrame]:
+        result_dict = {}
+        for csv_name, df in merged.items():
+            spearman_corr = {}
+            for col in self._numeric_features(df):
+                valid_idx = df[col].notna() & self._read_clinical(clinical_path)[clinical_column].notna()
+                corr, p_value = spearmanr(self._standardize(df)[col][valid_idx],
+                                          standardize_df(self._read_clinical(clinical_path)
+                                                         )[clinical_column][valid_idx])
+                spearman_corr[col] = {'spearman_corr': corr, 'p_value': p_value}
 
+            spearman_df = pd.DataFrame(spearman_corr).T
+            result_dict[csv_name] = spearman_df.reset_index().rename(columns={'index': 'Feature'})
+        return result_dict
+
+    def _features_importance(self, df: pd.DataFrame) -> np.ndarray:
+        return np.sort(np.abs(df.loc[df['Feature'].isin(
+            self._significant_features(df)), 'spearman_corr'].values))[::-1]
+
+    def _best_features_by_threshold(self, df: pd.DataFrame) -> tuple[KneeLocator, float|None, list]:
+        knee = KneeLocator(np.arange(1, len(self._features_importance(df)) + 1), self._features_importance(df),
+                           curve='convex', direction='decreasing')
+        threshold = self._features_importance(df)[knee.knee] if knee.knee is not None else None
+        best_features = df[df['spearman_corr'].abs() > threshold]['Feature'].tolist()
+        return knee, threshold, best_features
+
+    def best_spearman_features(self, spearman_dfs: dict[str, pd.DataFrame],
+                               plot: bool=False) -> dict[str, list]:
+        result_dict = {}
+        for csv_name, df in spearman_dfs.items():
+            knee, threshold, best_features = self._best_features_by_threshold(df)
+            if plot: pass
+            result_dict[csv_name] = best_features
+        return result_dict
