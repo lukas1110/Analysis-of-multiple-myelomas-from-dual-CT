@@ -3,7 +3,7 @@ import os
 import glob
 import numpy as np
 import pandas as pd
-# import seaborn as sns
+import seaborn as sns
 from kneed import KneeLocator
 import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
@@ -13,15 +13,14 @@ from scipy.stats import spearmanr, kruskal
 from collections import defaultdict
 # from mrmr import mrmr_classif, mrmr_regression
 from sklearn.preprocessing import StandardScaler
-# from sklearn.model_selection import train_test_split
-# from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 # from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
-# from sklearn.metrics import accuracy_score, confusion_matrix, r2_score, mean_squared_error, mean_absolute_error
+from sklearn.metrics import confusion_matrix, r2_score, mean_squared_error, mean_absolute_error
 
 
 
 class VisualizationManager:
-    # TODO: Visualization of RF
     # TODO: Visualization of LASSO
     # TODO: Visualization of MI
     # TODO: Visualization of MRMR
@@ -60,6 +59,75 @@ class VisualizationManager:
         fig.colorbar(im1, ax=axes, orientation='horizontal', fraction=0.05, pad=0.05, label='Spearman correlation')
         plt.show()
 
+    @staticmethod
+    def plot_rf_classification(labels, predictions, feature_importance_df, name: str):
+        cm = confusion_matrix(labels, predictions)
+        class_accuracies = [(cm[i, i] / cm[i].sum() if cm[i].sum() > 0 else 0) for i in range(len(cm))]
+        accuracy_text = " | ".join([f"Stage {i + 1}: {class_accuracies[i] * 100:.1f}%" for i in range(len(cm))])
+
+        importance = feature_importance_df['Importance'].sort_values(ascending=False).values
+        knee = KneeLocator(np.arange(1, len(importance) + 1), importance, curve='convex', direction='decreasing')
+        threshold = importance[knee.knee] if knee.knee is not None else 0
+
+        fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+        fig.suptitle(f"Random Forest Classification for {name}: {round(cm.diagonal().sum() / cm.sum(), 2)}",
+                     fontsize=16, fontweight='bold')
+
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+                    xticklabels=[str(i) for i in [1, 2, 3]],
+                    yticklabels=[str(i) for i in [1, 2, 3]], ax=axes[0], cbar=False)
+        axes[0].set_xlabel("Predicted")
+        axes[0].set_ylabel("True")
+        axes[0].set_title(f"Confusion Matrix\n{accuracy_text}")
+
+        axes[1].plot(np.arange(1, len(importance) + 1), importance, marker='o',
+                     color='tab:blue', label='Feature importance')
+        axes[1].axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
+        if knee.knee is not None:
+            axes[1].axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
+        axes[1].set_xlabel("Feature rank")
+        axes[1].set_ylabel("Importance")
+        axes[1].set_title("Feature Importance Curve")
+        axes[1].grid(True, linestyle='--', alpha=0.5)
+        axes[1].legend()
+
+        plt.tight_layout()
+        plt.show()
+
+    @staticmethod
+    def plot_rf_regression(labels, predictions, feature_importance_df, name: str):
+        r2 = r2_score(labels, predictions)
+        mse = mean_squared_error(labels, predictions)
+        mae = mean_absolute_error(labels, predictions)
+
+        importance = feature_importance_df['Importance'].sort_values(ascending=False).values
+        knee = KneeLocator(np.arange(1, len(importance) + 1), importance, curve='convex', direction='decreasing')
+        threshold = importance[knee.knee] if knee.knee is not None else 0
+
+        fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+        fig.suptitle(f"Random Forest Regression for {name} R²: {r2:.3f} || MSE: {mse:.3f} || MAE: {mae:.3f}",
+                     fontsize=16, fontweight='bold')
+
+        axes[0].scatter(labels, predictions, alpha=0.7)
+        axes[0].plot([labels.min(), labels.max()], [labels.min(), labels.max()], 'r--', lw=2)
+        axes[0].set_xlabel("True values")
+        axes[0].set_ylabel("Predicted values")
+        axes[0].set_title("True vs Predicted")
+
+        axes[1].plot(np.arange(1, len(importance) + 1), importance, marker='o',
+                     color='tab:blue', label='Feature importance')
+        axes[1].axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
+        if knee.knee is not None:
+            axes[1].axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
+        axes[1].set_xlabel("Feature rank")
+        axes[1].set_ylabel("Importance")
+        axes[1].set_title("Feature Importance Curve")
+        axes[1].grid(True, linestyle='--', alpha=0.5)
+        axes[1].legend()
+
+        plt.tight_layout()
+        plt.show()
+
 
 class Dataset:
     def __init__(self, base_path: str, clinical_path: str) -> None:
@@ -73,9 +141,10 @@ class Dataset:
     def _add_stage(self) -> pd.DataFrame:
         pd.set_option('future.no_silent_downcasting', True)
         df = self._read_clinical()
-        df['Stage'] = df['ISS classification'].replace(
-            {'Stage 1': int(1), 'Stage 2': int(2), 'Stage 3': int(3)})
-        return df.dropna(subset=['Stage'])
+        df['Stage'] = df['ISS classification'].replace({'Stage 1': 1, 'Stage 2': 2, 'Stage 3': 3})
+        df = df.dropna(subset=['Stage'])
+        df['Stage'] = df['Stage'].astype(int)
+        return df
 
     @staticmethod
     def _extract_feature_group(feature_name: str) -> str:
@@ -237,10 +306,110 @@ class KruskalWallis(StatisticHelper):
         return results
 
 
+class RandomForestHelper:
+    def __init__(self, features: pd.DataFrame, labels: pd.Series, task: str = "classification",
+                 n_trees: int = 200, test_size: float = 0.2):
+        self.features = features
+        self.labels = labels
+        self.task = task
+        self.n_trees = n_trees
+        self.test_size = test_size
+
+        self.x_train = self.x_test = self.y_train = self.y_test = None
+        self.model = None
+        self.feature_importance_df = None
+
+    def split(self):
+        self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(
+            self.features, self.labels, test_size=self.test_size,
+            stratify=self.labels if self.task == "classification" else None, random_state=42)
+
+    def fit(self):
+        self.split()
+        if self.task == "classification":
+            self.model = RandomForestClassifier(n_estimators=self.n_trees, random_state=42)
+        else:
+            self.model = RandomForestRegressor(n_estimators=self.n_trees, random_state=42)
+        self.model.fit(self.x_train, self.y_train)
+
+    def predict(self):
+        return self.model.predict(self.x_test)
+
+    def feature_importance(self):
+        self.feature_importance_df = pd.DataFrame({
+            "Feature": self.features.columns,
+            "Importance": self.model.feature_importances_
+        }).sort_values("Importance", ascending=False)
+        return self.feature_importance_df
+
+    @staticmethod
+    def select_features_by_knee(feature_importance_df: pd.DataFrame) -> tuple[KneeLocator, float | None, list[str], np.ndarray]:
+        importance = np.sort(feature_importance_df['Importance'].values)[::-1]
+        knee = KneeLocator(np.arange(1, len(importance) + 1), importance, curve='convex', direction='decreasing')
+        threshold = importance[knee.knee] if knee.knee is not None else 0
+        best_features = feature_importance_df[feature_importance_df['Importance'] > threshold]['Feature'].tolist()
+        return knee, threshold, best_features, importance
 
 
+class RandomForest(Dataset):
+    def __init__(self, base_path: str, clinical_path: str) -> None:
+        super().__init__(base_path, clinical_path)
 
+    def classification(self, significant: bool = False, plot: bool = False,
+                       image_name: str | None = None) -> dict[str, list]:
 
+        merged = self._merged_csvs() if image_name is None else {image_name: self._merged_csvs()[image_name]}
+        statistic = KruskalWallis(self.base_path, self.clinical_path).statistic
+        statistic = statistic if image_name is None else {image_name: statistic[image_name]}
+        labels = self.clinical_df['Stage']
+
+        result_dict = {}
+        for name, df in merged.items():
+            if significant and name in statistic:
+                features = df[self._significant_features(statistic[name])]
+            else:
+                features = df[self._numeric_features(df)]
+
+            valid_idx = features.notna().all(axis=1) & labels.notna()
+            features, labels = features[valid_idx], labels[valid_idx]
+
+            rf_helper = RandomForestHelper(pd.DataFrame(features), labels)
+            rf_helper.fit()
+            selected_features = rf_helper.select_features_by_knee(rf_helper.feature_importance())[2]
+            result_dict[name] = selected_features
+
+            if plot: VisualizationManager.plot_rf_classification(
+                rf_helper.y_test, rf_helper.predict(), rf_helper.feature_importance(), name)
+
+        return result_dict
+
+    def regression(self, significant: bool = False, plot: bool = False, image_name: str | None = None,
+                   biomarker_name: str = 'Beta2 microglobulin (mg/l)') -> dict[str, list]:
+
+        merged = self._merged_csvs() if image_name is None else {image_name: self._merged_csvs()[image_name]}
+        statistic = Spearman(self.base_path, self.clinical_path, biomarker_name=biomarker_name).statistic
+        statistic = statistic if image_name is None else {image_name: statistic[image_name]}
+        labels = self.clinical_df[biomarker_name]
+
+        result_dict = {}
+        for name, df in merged.items():
+            if significant and name in statistic:
+                features = df[self._significant_features(statistic[name])]
+            else:
+                features = df[self._numeric_features(df)]
+
+            valid_idx = features.notna().all(axis=1) & labels.notna()
+            features, labels = features[valid_idx], labels[valid_idx]
+
+            rf_helper = RandomForestHelper(pd.DataFrame(features), labels, task="regression")
+            rf_helper.fit()
+            selected_features = rf_helper.select_features_by_knee(rf_helper.feature_importance())[2]
+            result_dict[name] = selected_features
+
+            if plot: VisualizationManager.plot_rf_regression(
+                rf_helper.y_test, rf_helper.predict(), rf_helper.feature_importance(), name)
+
+        return result_dict
 
 
 
@@ -248,4 +417,3 @@ class KruskalWallis(StatisticHelper):
 if __name__ == "__main__":
     base_dir_path = r"D:\DATA_Myelomy"
     clinical_biomarkers_path = r"D:\Clinical_data\Table_clinical_data.csv"
-    print(KruskalWallis(base_dir_path, clinical_biomarkers_path).relevant_features_by_corr(plot=True))

@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import Lasso
 from feature_engine.selection import MRMR
 from scipy.stats import spearmanr, kruskal
-from collections import defaultdict
+from collections import defaultdict, Counter
 from mrmr import mrmr_classif, mrmr_regression
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -225,7 +225,7 @@ def best_feature_from_each_feature_group(significant_csv):
         result_dict[image] = selected_features
     return result_dict
 
-
+### DONE ###
 def filtered_features_spearman(merged_csv, spearman_csv,
                                       image_name=None, plot=False, threshold=0.75) -> dict[str, list]:
     if image_name is not None:
@@ -276,7 +276,7 @@ def filtered_features_spearman(merged_csv, spearman_csv,
         result_dict[csv_name] = remaining_features
     return result_dict
 
-
+### DONE ###
 def filtered_features_kruskal_wallis(merged_csv, kruskal_wallis_csv,
                                      image_name=None, plot=False, threshold=0.75) -> dict[str, list]:
     if image_name is not None:
