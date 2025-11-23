@@ -6,7 +6,7 @@ import pandas as pd
 # import seaborn as sns
 from functools import reduce
 from kneed import KneeLocator
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 # from sklearn.linear_model import Lasso
 # from feature_engine.selection import MRMR
 from scipy.stats import spearmanr, kruskal
@@ -19,21 +19,90 @@ from sklearn.preprocessing import StandardScaler
 # from sklearn.metrics import accuracy_score, confusion_matrix, r2_score, mean_squared_error, mean_absolute_error
 
 
-class Dataset:
+class VisualizationManager:
+    # TODO: Visualization based on statistical value (threshold method)
+    # TODO: Visualization box plots of stage (or another categorical col) based on img features
+    # TODO: Visualization scatter of clinical col and img features (also just selected)
+    # TODO: Visualization of filtered features based on statistical value
+    # TODO: Visualization of RF
+    # TODO: Visualization of LASSO
+    # TODO: Visualization of MI
+    # TODO: Visualization of MRMR
+    def _plot_stat_selection(self, df, name):
+        knee, threshold, _, importance = self._knee_threshold_selection(df)
+        plt.figure(figsize=(10, 6))
+        plt.plot(np.arange(1, len(importance) + 1), importance, marker='o', label='Feature importance')
+        if threshold is not None:
+            plt.axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold: {threshold:.4f}')
+            plt.axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature: {knee.knee}')
+        plt.title(f"Selected Features for {name}")
+        plt.xlabel("Feature rank")
+        plt.ylabel("Importance")
+        plt.grid(True, linestyle='--', alpha=0.6)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+    pass
+
+
+class ThresholdSelectionFeatures:
+    def __init__(self, df: pd.DataFrame) -> None:
+        self.df = df
+
+    def _knee_threshold_selection(self, df: pd.DataFrame) -> tuple[KneeLocator, float | None, list, np.ndarray]:
+        importance = np.sort(np.abs(df.loc[df['Feature'].isin(self._significant_features(df)), 'stat'].values))[::-1]
+        knee = KneeLocator(np.arange(1, len(importance) + 1), importance, curve='convex', direction='decreasing')
+        threshold = importance[knee.knee] if knee.knee is not None else None
+        best_features = df.loc[df['stat'].abs() > threshold, 'Feature'].tolist()
+
+        return knee, threshold, best_features, importance
+
+
+class DatasetHelper:
     def __init__(self, base_path: str, clinical_path: str) -> None:
         self.base_path = base_path
         self.clinical_path = clinical_path
-        self.clinical_df = self._clinical_stage()
 
-    def _read_clinical(self) -> pd.DataFrame:
-        return pd.read_csv(self.clinical_path, encoding='cp1252')
-
-    def _clinical_stage(self) -> pd.DataFrame:
-        pd.set_option('future.no_silent_downcasting', True)
+    def _add_stage(self) -> pd.DataFrame:
         clinical_df = self._read_clinical()
         clinical_df['Stage'] = clinical_df['ISS classification'].replace(
             {'Stage 1': int(1), 'Stage 2': int(2), 'Stage 3': int(3)})
         return clinical_df.dropna(subset=['Stage'])
+
+    @staticmethod
+    def _extract_feature_group(feature_name: str) -> str:
+        patterns = [r"^gradient_firstorder", r"^gradient_glcm", r"^gradient_glrlm",
+                    r"^gradient_glszm", r"^gradient_gldm", r"^gradient_ngtdm",
+                    r"^original_firstorder", r"^original_glcm", r"^original_glrlm",
+                    r"^original_glszm", r"^original_gldm", r"^original_ngtdm", r"^shape"]
+
+        for p in patterns:
+            if re.match(p, feature_name):
+                return p.replace("^", "")
+        return "other"
+
+    def _all_csv(self) -> list[str]:
+        return glob.glob(os.path.join(self.base_path, "*", "*spine_lesions*.csv"))
+
+    def _filtered_by_group(self) -> pd.DataFrame:
+        filtered_dfs = [df[df['p_value'] < 0.05][['Feature', 'p_value']].rename(
+            columns={'p_value': csv_name}) for csv_name, df in self.statistic_dfs.items()]
+
+        merged_df = reduce(lambda left, right: pd.merge(
+            left, right, on='Feature', how='outer'), filtered_dfs)
+        merged_df['Group'] = merged_df['Feature'].apply(self._extract_feature_group)
+
+        return merged_df.sort_values(['Group', 'Feature']).reset_index(drop=True)
+
+
+class Dataset:
+    def __init__(self, base_path: str, clinical_path: str) -> None:
+        self.base_path = base_path
+        self.clinical_path = clinical_path
+        self.clinical_df = self._add_stage()
+
+    def _read_clinical(self) -> pd.DataFrame:
+        return pd.read_csv(self.clinical_path, encoding='cp1252')
 
     @staticmethod
     def _numeric_features(df: pd.DataFrame) -> list[str]:
@@ -48,21 +117,6 @@ class Dataset:
         return pd.DataFrame(scaler.fit_transform(df[self._numeric_features(df)]),
                             columns=df[self._numeric_features(df)].columns,
                             index=df[self._numeric_features(df)].index)
-
-    @staticmethod
-    def _extract_group(feature_name: str) -> str:
-        patterns = [r"^gradient_firstorder", r"^gradient_glcm", r"^gradient_glrlm",
-                    r"^gradient_glszm", r"^gradient_gldm", r"^gradient_ngtdm",
-                    r"^original_firstorder", r"^original_glcm", r"^original_glrlm",
-                    r"^original_glszm", r"^original_gldm", r"^original_ngtdm", r"^shape"]
-
-        for p in patterns:
-            if re.match(p, feature_name):
-                return p.replace("^", "")
-        return "other"
-
-    def _all_csv(self) -> list[str]:
-        return glob.glob(os.path.join(self.base_path, "*", "*spine_lesions*.csv"))
 
     def merged_dfs(self) -> dict[str, pd.DataFrame]:
         csv_dict, result_dict = defaultdict(list), {}
@@ -82,49 +136,33 @@ class Dataset:
 
 
 class Spearman(Dataset):
-    def __init__(self, base_path: str, clinical_path: str) -> None:
+    def __init__(self, base_path: str, clinical_path: str,
+                 biomarker_name: str='Beta2 microglobulin (mg/l)') -> None:
         super().__init__(base_path, clinical_path)
         self.merged = self.merged_dfs()
         self.statistic_dfs = self._spearman_dfs()
+        self.biomarker_name = biomarker_name
 
-    def _spearman_dfs(self, clinical_marker: str='Beta2 microglobulin (mg/l)')-> dict[str, pd.DataFrame]:
+    def _spearman_dfs(self) -> dict[str, pd.DataFrame]:
         result_dict = {}
         for csv_name, df in self.merged.items():
             spearman_corr = {}
             for col in self._numeric_features(df):
-                valid_idx = df[col].notna() & self.clinical_df[clinical_marker].notna()
+                valid_idx = df[col].notna() & self.clinical_df[self.biomarker_name].notna()
                 corr, p_value = spearmanr(self._standardize(df)[col][valid_idx],
-                                          self._standardize(self.clinical_df)[clinical_marker][valid_idx])
+                                          self._standardize(self.clinical_df)[self.biomarker_name][valid_idx])
                 spearman_corr[col] = {'stat': corr, 'p_value': p_value}
 
             spearman_df = pd.DataFrame(spearman_corr).T
             result_dict[csv_name] = spearman_df.reset_index().rename(columns={'index': 'Feature'})
         return result_dict
 
-    def _knee_threshold_selection(self, df: pd.DataFrame) -> tuple[KneeLocator, float | None, list]:
-        importance = np.sort(np.abs(df.loc[df['Feature'].isin(self._significant_features(df)), 'stat'].values))[::-1]
-        knee = KneeLocator(np.arange(1, len(importance) + 1), importance, curve='convex', direction='decreasing')
-        threshold = importance[knee.knee] if knee.knee is not None else None
-        best_features = df.loc[df['stat'].abs() > threshold, 'Feature'].tolist()
-
-        return knee, threshold, best_features
-
-    def _filtered_by_group(self) -> pd.DataFrame:
-        filtered_dfs = [df[df['p_value'] < 0.05][['Feature', 'p_value']].rename(
-            columns={'p_value': csv_name}) for csv_name, df in self.statistic_dfs.items()]
-
-        merged_df = reduce(lambda left, right: pd.merge(
-            left, right, on='Feature', how='outer'), filtered_dfs)
-        merged_df['Group'] = merged_df['Feature'].apply(self._extract_group)
-
-        return merged_df.sort_values(['Group', 'Feature']).reset_index(drop=True)
-
     def best_features(self, plot: bool=False) -> dict[str, list]:
         result_dict = {}
         for csv_name, df in self.statistic_dfs.items():
-            knee, threshold, best_features = self._knee_threshold_selection(df)
-            if plot: pass
+            _, _, best_features, _ = self._knee_threshold_selection(df)
             result_dict[csv_name] = best_features
+            if plot: self._plot_stat_selection(df, csv_name)
         return result_dict
 
     def best_feature_from_group(self) -> dict[str, list]:
@@ -149,7 +187,7 @@ class KruskalWallis(Spearman):
         self.merged = self.merged_dfs()
         self.statistic_dfs = self._kw_dfs()
 
-    def _kw_dfs(self):
+    def _kw_dfs(self) -> dict[str, pd.DataFrame]:
         results_dict = {}
         for csv_name, df in self.merged.items():
             results = []
@@ -163,6 +201,20 @@ class KruskalWallis(Spearman):
         return results_dict
 
 
+class RandomForest:
+    pass
+
+
+class Lasso:
+    pass
+
+
+class MutualInformation:
+    pass
+
+
+class MRMR:
+    pass
 
 
 
@@ -170,8 +222,6 @@ class KruskalWallis(Spearman):
 
 
 
-
-
-base_dir_path = r"D:\DATA_Myelomy"
-clinical_biomarkers_path = r"D:\Clinical_data\Table_clinical_data.csv"
-
+# if __name__ == "__main__":
+#     base_dir_path = r"D:\DATA_Myelomy"
+#     clinical_biomarkers_path = r"D:\Clinical_data\Table_clinical_data.csv"
