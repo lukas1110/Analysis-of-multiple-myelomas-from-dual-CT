@@ -4,7 +4,6 @@ import glob
 import numpy as np
 import pandas as pd
 # import seaborn as sns
-from functools import reduce
 from kneed import KneeLocator
 import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
@@ -22,17 +21,13 @@ from sklearn.preprocessing import StandardScaler
 
 
 class VisualizationManager:
-    # TODO: Visualization of filtered features based on statistical value
     # TODO: Visualization of RF
     # TODO: Visualization of LASSO
     # TODO: Visualization of MI
     # TODO: Visualization of MRMR
 
     @staticmethod
-    def plot_stat_selection(df: pd.DataFrame, name: str) -> None:
-        selector = ThresholdSelectionFeatures(df)
-        knee, threshold, _, importance = selector.select_features_by_knee()
-
+    def plot_stat_selection(knee: KneeLocator, importance: np.ndarray, threshold: float, name: str) -> None:
         plt.figure(figsize=(10, 6))
         plt.plot(np.arange(1, len(importance) + 1), importance, marker='o', label='Feature importance')
 
@@ -49,11 +44,8 @@ class VisualizationManager:
         plt.show()
 
     @staticmethod
-    def plot_filtered_features(
-            merged_df: pd.DataFrame,
-            significant_features: list[str],
-            remaining_features: list[str],
-            name: str) -> None:
+    def plot_filtered_features(merged_df: pd.DataFrame, significant_features: list[str],
+                               remaining_features: list[str], name: str) -> None:
         fig, axes = plt.subplots(1, 2, figsize=(16, 8))
         fig.suptitle(f"Filtration of Significant features for {name}", fontsize=16, fontweight='bold')
 
@@ -69,42 +61,17 @@ class VisualizationManager:
         plt.show()
 
 
-class ThresholdSelectionFeatures:
-    def __init__(self, df: pd.DataFrame) -> None:
-        self.df = df
-
-    def _get_significant_features(self) -> list[str]:
-        return self.df.loc[self.df['p_value'] < 0.05, 'Feature'].tolist()
-
-    def _compute_importance(self) -> np.ndarray:
-        sig_features = self._get_significant_features()
-        importance = np.abs(self.df.loc[self.df['Feature'].isin(sig_features), 'stat'].values)
-        return np.sort(importance)[::-1]
-
-    @staticmethod
-    def _find_knee(importance: np.ndarray) -> tuple[KneeLocator, float | None]:
-        x = np.arange(1, len(importance) + 1)
-        knee = KneeLocator(x, importance, curve='convex', direction='decreasing')
-        threshold = importance[knee.knee] if knee.knee is not None else None
-        return knee, threshold
-
-    def select_features_by_knee(self) -> tuple[KneeLocator, float | None, list[str], np.ndarray]:
-        importance = self._compute_importance()
-        knee, threshold = self._find_knee(importance)
-        best_features = self.df.loc[
-            self.df['stat'].abs() > (threshold if threshold is not None else 0), 'Feature'].tolist()
-        return knee, threshold, best_features, importance
-
-
-class DatasetHelper:
+class Dataset:
     def __init__(self, base_path: str, clinical_path: str) -> None:
         self.base_path = base_path
         self.clinical_path = clinical_path
+        self.clinical_df = self._add_stage()
 
     def _read_clinical(self) -> pd.DataFrame:
         return pd.read_csv(self.clinical_path, encoding='cp1252')
 
     def _add_stage(self) -> pd.DataFrame:
+        pd.set_option('future.no_silent_downcasting', True)
         df = self._read_clinical()
         df['Stage'] = df['ISS classification'].replace(
             {'Stage 1': int(1), 'Stage 2': int(2), 'Stage 3': int(3)})
@@ -126,16 +93,13 @@ class DatasetHelper:
     def _all_csv(self) -> list[str]:
         return glob.glob(os.path.join(self.base_path, "*", "*spine_lesions*.csv"))
 
-
-class Dataset(DatasetHelper):
-    def __init__(self, base_path: str, clinical_path: str) -> None:
-        super().__init__(base_path, clinical_path)
-        self.clinical_df = self._add_stage()
-        self.merged = self.merged_csvs()
-
     @staticmethod
     def _numeric_features(df: pd.DataFrame) -> list[str]:
         return df.select_dtypes(include=['number']).columns.tolist()
+
+    @staticmethod
+    def _significant_features(df: pd.DataFrame) -> list[str]:
+        return df.loc[df['p_value'] < 0.05, 'Feature'].tolist()
 
     def _standardize(self, df: pd.DataFrame) -> pd.DataFrame:
         scaler = StandardScaler()
@@ -143,7 +107,7 @@ class Dataset(DatasetHelper):
                             columns=self._numeric_features(df),
                             index=df.index)
 
-    def merged_csvs(self) -> dict[str, pd.DataFrame]:
+    def _merged_csvs(self) -> dict[str, pd.DataFrame]:
         csv_dict = defaultdict(list)
         for f in self._all_csv():
             csv_dict[os.path.basename(f)].append(f)
@@ -161,67 +125,84 @@ class Dataset(DatasetHelper):
         return result_dict
 
 
-class StatisticHelper(DatasetHelper, ABC):
+class StatisticHelper(Dataset, ABC):
     @property
     @abstractmethod
-    def statistic_dfs(self) -> dict[str, pd.DataFrame]:
+    def statistic(self):
         pass
 
-    @staticmethod
-    def _significant_features(df: pd.DataFrame) -> list[str]:
-        return df.loc[df['p_value'] < 0.05, 'Feature'].tolist()
+    def _select_features_by_knee(self, df:pd.DataFrame) -> tuple[KneeLocator, float | None, list[str], np.ndarray]:
+        importance = np.sort(np.abs(df.loc[df['Feature'].isin(self._significant_features(df)), 'stat'].values))[::-1]
+        knee = KneeLocator(np.arange(1, len(importance) + 1), importance, curve='convex', direction='decreasing')
+        threshold = importance[knee.knee] if knee.knee is not None else None
+        best_features = df[df['stat'].abs() > threshold]['Feature'].tolist()
+        return knee, threshold, best_features, importance
 
-    def _filtered_by_group(self) -> pd.DataFrame:
-        filtered_dfs = [
-            df[df['Feature'].isin(self._significant_features(df))][['Feature', 'p_value']]
-            .rename(columns={'p_value': csv_name})
-            for csv_name, df in self.statistic_dfs.items()
-        ]
-
-        merged = reduce(lambda l, r: pd.merge(l, r, on='Feature', how='outer'), filtered_dfs)
-        merged["Group"] = merged["Feature"].apply(self._extract_feature_group)
-        return merged.sort_values(["Group", "Feature"]).reset_index(drop=True)
-
-    def best_features_by_stat(self, plot: bool = False) -> dict[str, list]:
+    def best_features_by_stat(self, image_name: str | None = None, plot: bool = False) -> dict[str, list]:
+        statistic_csv = self.statistic if image_name is None else {image_name: self.statistic[image_name]}
         result_dict = {}
-        for csv_name, df in self.statistic_dfs.items():
-            df_copy = df[['Feature', 'stat', 'p_value']].copy()
-            selector = ThresholdSelectionFeatures(df_copy)
-
-            knee, threshold, selected_features, importance = selector.select_features_by_knee()
+        for csv_name, df in statistic_csv.items():
+            knee, threshold, selected_features, importance = self._select_features_by_knee(df)
             result_dict[csv_name] = selected_features
-            if plot: VisualizationManager.plot_stat_selection(df, csv_name)
+            if plot: VisualizationManager.plot_stat_selection(knee, importance, threshold, csv_name)
         return result_dict
 
-    def best_feature_from_group(self) -> dict[str, list]:
+    def best_feature_from_group(self, image_name: str | None = None) -> dict[str, list]:
+        statistic_csv = self.statistic if image_name is None else {image_name: self.statistic[image_name]}
         merged_df = pd.concat([
             df[df['Feature'].isin(self._significant_features(df))][['Feature', 'p_value']]
             .rename(columns={'p_value': name})
-            for name, df in self.statistic_dfs.items()
-        ]).groupby('Feature', as_index=False).first()
+            for name, df in statistic_csv.items()]).groupby('Feature', as_index=False).first()
 
         merged_df['Group'] = merged_df['Feature'].apply(self._extract_feature_group)
         image_columns = [c for c in merged_df.columns if c not in ["Feature", "Group"]]
 
-        return {image: [
-                group_df.loc[group_df[image].idxmin(), 'Feature']
-                for _, group_df in merged_df.groupby('Group')
-                if group_df[image].notna().any()] for image in image_columns}
+        return {image: [group_df.loc[group_df[image].idxmin(), 'Feature']
+                        for _, group_df in merged_df.groupby('Group')
+                        if group_df[image].notna().any()] for image in image_columns}
+
+    def relevant_features_by_corr(self, image_name: str | None = None, plot: bool = False,
+                                  threshold: float = 0.75) -> dict[str, list]:
+        merged_csv = self._merged_csvs() if image_name is None else {image_name: self._merged_csvs()[image_name]}
+        statistic_csv = self.statistic if image_name is None else {image_name: self.statistic[image_name]}
+
+        result_dict = {}
+        for csv_name, (merged_df, stat_df) in zip(merged_csv.keys(), zip(merged_csv.values(), statistic_csv.values())):
+            sig_features = self._significant_features(stat_df)
+            remaining_features = list(sig_features)
+
+            while True:
+                corr_matrix = self._standardize(merged_df)[remaining_features].corr(method='spearman').abs()
+                np.fill_diagonal(corr_matrix.values, 0)
+                max_corr = corr_matrix.values.max()
+                if max_corr <= threshold:
+                    break
+
+                idx = np.unravel_index(np.argmax(corr_matrix.values), corr_matrix.shape)
+                row_idx, col_idx = map(int, idx)
+                feat1, feat2 = corr_matrix.columns[row_idx], corr_matrix.columns[col_idx]
+                stat1 = stat_df.loc[stat_df['Feature'] == feat1, 'stat'].values[0]
+                stat2 = stat_df.loc[stat_df['Feature'] == feat2, 'stat'].values[0]
+                to_remove = feat2 if abs(stat1) >= abs(stat2) else feat1
+                remaining_features.remove(to_remove)
+
+            result_dict[csv_name] = remaining_features
+            if plot: VisualizationManager.plot_filtered_features(merged_df, sig_features, remaining_features, csv_name)
+        return result_dict
 
 
-class Spearman(Dataset, StatisticHelper):
-    def __init__(self, base_path: str, clinical_path: str,
-                 biomarker_name: str='Beta2 microglobulin (mg/l)') -> None:
+class Spearman(StatisticHelper):
+    def __init__(self, base_path: str, clinical_path: str, biomarker_name: str='Beta2 microglobulin (mg/l)') -> None:
         super().__init__(base_path, clinical_path)
         self.biomarker_name = biomarker_name
 
     @property
-    def statistic_dfs(self):
+    def statistic(self) -> dict[str, pd.DataFrame]:
         return self._spearman_dfs()
 
     def _spearman_dfs(self) -> dict[str, pd.DataFrame]:
         result = {}
-        for csv_name, df in self.merged.items():
+        for csv_name, df in self._merged_csvs().items():
             stats = []
             for col in self._numeric_features(df):
                 valid = df[col].notna() & self.clinical_df[self.biomarker_name].notna()
@@ -235,14 +216,17 @@ class Spearman(Dataset, StatisticHelper):
         return result
 
 
-class KruskalWallis(Dataset, StatisticHelper):
+class KruskalWallis(StatisticHelper):
+    def __init__(self, base_path: str, clinical_path: str) -> None:
+        super().__init__(base_path, clinical_path)
+
     @property
-    def statistic_dfs(self):
+    def statistic(self) -> dict[str, pd.DataFrame]:
         return self._kw_dfs()
 
     def _kw_dfs(self) -> dict[str, pd.DataFrame]:
         results = {}
-        for csv_name, df in self.merged.items():
+        for csv_name, df in self._merged_csvs().items():
             rows = []
             for feature in self._numeric_features(df):
                 data = pd.concat([df[feature], self.clinical_df["Stage"]], axis=1).dropna()
@@ -253,20 +237,6 @@ class KruskalWallis(Dataset, StatisticHelper):
         return results
 
 
-class RandomForest:
-    pass
-
-
-class Lasso:
-    pass
-
-
-class MutualInformation:
-    pass
-
-
-class MRMR:
-    pass
 
 
 
@@ -274,6 +244,8 @@ class MRMR:
 
 
 
-# if __name__ == "__main__":
-#     base_dir_path = r"D:\DATA_Myelomy"
-#     clinical_biomarkers_path = r"D:\Clinical_data\Table_clinical_data.csv"
+
+if __name__ == "__main__":
+    base_dir_path = r"D:\DATA_Myelomy"
+    clinical_biomarkers_path = r"D:\Clinical_data\Table_clinical_data.csv"
+    print(KruskalWallis(base_dir_path, clinical_biomarkers_path).relevant_features_by_corr(plot=True))
