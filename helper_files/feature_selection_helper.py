@@ -327,7 +327,7 @@ def filtered_features_kruskal_wallis(merged_csv, kruskal_wallis_csv,
         result_dict[csv_name] = remaining_features
     return result_dict
 
-
+### DONE ###
 def random_forest_classifier_selected_features(merged_csv, clinical_path,
                                     image_name=None, plot=False, test_size=0.2, n_trees=200) -> dict[str, list]:
     clinical_df = add_stage_in_clinical_df(clinical_path)
@@ -404,7 +404,7 @@ def random_forest_classifier_selected_features(merged_csv, clinical_path,
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+### DONE ###
 def random_forest_regressor_selected_features(merged_csv, clinical_path,
                                     image_name=None, plot=False, test_size=0.2, n_trees=200) -> dict[str, list]:
     clinical_df = add_stage_in_clinical_df(clinical_path)
@@ -472,7 +472,7 @@ def random_forest_regressor_selected_features(merged_csv, clinical_path,
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+### DONE ###
 def random_forest_classifier_significant_selected_features(merged_csv, kruskal_wallis_csv, clinical_path, image_name=None,
                                                 plot=False, test_size=0.2, n_trees=200) -> dict[str, list]:
     clinical_df = add_stage_in_clinical_df(clinical_path)
@@ -552,7 +552,7 @@ def random_forest_classifier_significant_selected_features(merged_csv, kruskal_w
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+### DONE ###
 def random_forest_regressor_significant_selected_features(merged_csv, spearman_csv, clinical_path, image_name=None,
                                                 plot=False, n_trees=200) -> dict[str, list]:
     clinical_df = add_stage_in_clinical_df(clinical_path)

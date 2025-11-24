@@ -105,3 +105,21 @@ class VisualizationManager:
 
         plt.tight_layout()
         plt.show()
+
+    @staticmethod
+    def plot_mutual_information(knee: KneeLocator, importance: np.ndarray, threshold: float, name: str) -> None:
+        plt.figure(figsize=(10, 6))
+        plt.plot(np.arange(1, len(importance) + 1), importance, marker='o', label='Feature MI')
+
+        if threshold is not None:
+            plt.axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
+            plt.axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
+
+        plt.title(f"Mutual information curve for {name}")
+        plt.xlabel("Feature rank")
+        plt.ylabel("MI")
+        plt.grid(True, linestyle='--', alpha=0.6)
+
+        plt.legend()
+        plt.tight_layout()
+        plt.show()

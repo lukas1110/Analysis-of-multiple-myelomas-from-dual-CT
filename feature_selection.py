@@ -15,7 +15,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from visualization_manager import VisualizationManager
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-# from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
+from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
 
 
 class DatasetHelper:
@@ -293,6 +293,51 @@ class RandomForest(Dataset):
         return result_dict
 
 
+class MutualInformation(Dataset):
+    def classification(self) -> dict[str, list]:
+        merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
+        labels = self.clinical_df[Settings.clinical_group_name]
+
+        result_dict = {}
+        for name, df in merged.items():
+            mutual_info_list = []
+            for feat in self._numeric_features(df):
+                valid_idx = df[feat].notna() & labels.notna()
+                x, y = df[[feat]][valid_idx], labels[valid_idx]
+
+                mi = mutual_info_classif(x, y, random_state=42)[0]
+                mutual_info_list.append({"Feature": feat, "importance": mi})
+
+            mi_df = pd.DataFrame(mutual_info_list).sort_values("importance", ascending=False)
+            knee, threshold, selected, importance = ThresholdSelectionFeatures(mi_df).select_features_by_knee()
+
+            result_dict[name] = selected
+            if Settings.show_visualization: VisualizationManager.plot_mutual_information(knee, importance, threshold, name)
+        return result_dict
+
+    def regression(self) -> dict[str, list]:
+        merged = self._merged_csvs() if Settings.image_name is None else {
+            Settings.image_name: self._merged_csvs()[Settings.image_name]}
+        labels = self.clinical_df[Settings.clinical_biomarker_name]
+
+        result_dict = {}
+        for name, df in merged.items():
+            mutual_info_list = []
+            for feat in self._numeric_features(df):
+                valid_idx = df[feat].notna() & labels.notna()
+                x, y = df[[feat]][valid_idx], labels[valid_idx]
+
+                mi = mutual_info_regression(x, y, random_state=42)[0]
+                mutual_info_list.append({"Feature": feat, "importance": mi})
+
+            mi_df = pd.DataFrame(mutual_info_list).sort_values("importance", ascending=False)
+            knee, threshold, selected, importance = ThresholdSelectionFeatures(mi_df).select_features_by_knee()
+
+            result_dict[name] = selected
+            if Settings.show_visualization: VisualizationManager.plot_mutual_information(knee, importance, threshold, name)
+        return result_dict
+
+
 class Settings:
     base_dir_path: str = r"D:\DATA_Myelomy"
     clinical_path: str = r"D:\Clinical_data\Table_clinical_data.csv"
@@ -301,7 +346,9 @@ class Settings:
     clinical_group_name: str | None = 'Stage'
 
     image_name: str | None = None
-    show_visualization: bool = True
+    show_visualization: bool = False
 
 if __name__ == "__main__":
-    pass
+    m = MutualInformation()
+    print(m.classification())
+    print(m.regression())
