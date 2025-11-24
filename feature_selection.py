@@ -103,10 +103,11 @@ class ThresholdSelectionFeatures:
 
         return knee, threshold, best_features, importance
 
+
 class StatisticHelper(Dataset, ABC):
     @property
     @abstractmethod
-    def statistic(self):
+    def statistic(self) -> dict[str, pd.DataFrame]:
         pass
 
     def best_features_by_stat(self) -> dict[str, list]:
@@ -204,7 +205,7 @@ class KruskalWallis(StatisticHelper):
 
 class RandomForestHelper:
     def __init__(self, features: pd.DataFrame, labels: pd.Series, task: str = "classification",
-                 n_trees: int = 200, test_size: float = 0.2):
+                 n_trees: int = 200, test_size: float = 0.2) -> None:
         self.features = features
         self.labels = labels
         self.task = task

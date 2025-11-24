@@ -8,7 +8,6 @@ from sklearn.metrics import confusion_matrix, r2_score, mean_squared_error, mean
 
 class VisualizationManager:
     # TODO: Visualization of LASSO
-    # TODO: Visualization of MI
     # TODO: Visualization of MRMR
 
     @staticmethod
