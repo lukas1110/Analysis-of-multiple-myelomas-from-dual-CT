@@ -5,6 +5,7 @@ from kneed import KneeLocator
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, r2_score, mean_squared_error, mean_absolute_error
 
+
 class VisualizationManager:
     # TODO: Visualization of LASSO
     # TODO: Visualization of MI
@@ -45,14 +46,10 @@ class VisualizationManager:
         plt.show()
 
     @staticmethod
-    def plot_rf_classification(labels, predictions, feature_importance_df, name: str):
+    def plot_rf_classification(labels, predictions, knee, importance, threshold, name: str):
         cm = confusion_matrix(labels, predictions)
         class_accuracies = [(cm[i, i] / cm[i].sum() if cm[i].sum() > 0 else 0) for i in range(len(cm))]
         accuracy_text = " | ".join([f"Stage {i + 1}: {class_accuracies[i] * 100:.1f}%" for i in range(len(cm))])
-
-        importance = feature_importance_df['Importance'].sort_values(ascending=False).values
-        knee = KneeLocator(np.arange(1, len(importance) + 1), importance, curve='convex', direction='decreasing')
-        threshold = importance[knee.knee] if knee.knee is not None else 0
 
         fig, axes = plt.subplots(1, 2, figsize=(16, 6))
         fig.suptitle(f"Random Forest Classification for {name}: {round(cm.diagonal().sum() / cm.sum(), 2)}",
@@ -80,14 +77,10 @@ class VisualizationManager:
         plt.show()
 
     @staticmethod
-    def plot_rf_regression(labels, predictions, feature_importance_df, name: str):
+    def plot_rf_regression(labels, predictions, knee, importance, threshold, name: str):
         r2 = r2_score(labels, predictions)
         mse = mean_squared_error(labels, predictions)
         mae = mean_absolute_error(labels, predictions)
-
-        importance = feature_importance_df['Importance'].sort_values(ascending=False).values
-        knee = KneeLocator(np.arange(1, len(importance) + 1), importance, curve='convex', direction='decreasing')
-        threshold = importance[knee.knee] if knee.knee is not None else 0
 
         fig, axes = plt.subplots(1, 2, figsize=(16, 6))
         fig.suptitle(f"Random Forest Regression for {name} R²: {r2:.3f} || MSE: {mse:.3f} || MAE: {mae:.3f}",

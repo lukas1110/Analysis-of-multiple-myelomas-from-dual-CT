@@ -85,24 +85,35 @@ class Dataset(DatasetHelper):
         return result_dict
 
 
+class ThresholdSelectionFeatures:
+    def __init__(self, importance: pd.DataFrame) -> None:
+        self.importance = importance
+
+    def select_features_by_knee(self) -> tuple:
+        importance = np.sort(np.abs(self.importance['importance'].values))[::-1]
+
+        knee = KneeLocator(
+            np.arange(1, len(importance) + 1),
+            importance,
+            curve='convex',
+            direction='decreasing')
+
+        threshold = importance[knee.knee] if knee.knee is not None else 0
+        best_features = self.importance.loc[self.importance['importance'].abs() > threshold, 'Feature'].tolist()
+
+        return knee, threshold, best_features, importance
+
 class StatisticHelper(Dataset, ABC):
     @property
     @abstractmethod
     def statistic(self):
         pass
 
-    def _select_features_by_knee(self, df:pd.DataFrame) -> tuple[KneeLocator, float | None, list[str], np.ndarray]:
-        importance = np.sort(np.abs(df.loc[df['Feature'].isin(self._significant_features(df)), 'stat'].values))[::-1]
-        knee = KneeLocator(np.arange(1, len(importance) + 1), importance, curve='convex', direction='decreasing')
-        threshold = importance[knee.knee] if knee.knee is not None else None
-        best_features = df[df['stat'].abs() > threshold]['Feature'].tolist()
-        return knee, threshold, best_features, importance
-
     def best_features_by_stat(self) -> dict[str, list]:
         statistic_csv = self.statistic if Settings.image_name is None else {Settings.image_name: self.statistic[Settings.image_name]}
         result_dict = {}
         for csv_name, df in statistic_csv.items():
-            knee, threshold, selected_features, importance = self._select_features_by_knee(df)
+            knee, threshold, selected_features, importance = ThresholdSelectionFeatures(df).select_features_by_knee()
             result_dict[csv_name] = selected_features
             if Settings.show_visualization: VisualizationManager.plot_stat_selection(knee, importance, threshold, csv_name)
         return result_dict
@@ -140,8 +151,9 @@ class StatisticHelper(Dataset, ABC):
                 idx = np.unravel_index(np.argmax(corr_matrix.values), corr_matrix.shape)
                 row_idx, col_idx = map(int, idx)
                 feat1, feat2 = corr_matrix.columns[row_idx], corr_matrix.columns[col_idx]
-                stat1 = stat_df.loc[stat_df['Feature'] == feat1, 'stat'].values[0]
-                stat2 = stat_df.loc[stat_df['Feature'] == feat2, 'stat'].values[0]
+
+                stat1 = stat_df.loc[stat_df['Feature'] == feat1, 'importance'].values[0]
+                stat2 = stat_df.loc[stat_df['Feature'] == feat2, 'importance'].values[0]
                 to_remove = feat2 if abs(stat1) >= abs(stat2) else feat1
                 remaining_features.remove(to_remove)
 
@@ -165,7 +177,7 @@ class Spearman(StatisticHelper):
                 y = self._standardize(self.clinical_df)[Settings.clinical_biomarker_name][valid]
 
                 corr, p = spearmanr(x, y)
-                stats.append({"Feature": col, "stat": corr, "p_value": p})
+                stats.append({"Feature": col, "importance": corr, "p_value": p})
 
             result[csv_name] = pd.DataFrame(stats)
         return result
@@ -184,7 +196,8 @@ class KruskalWallis(StatisticHelper):
                 data = pd.concat([df[feature], self.clinical_df[Settings.clinical_group_name]], axis=1).dropna()
                 groups = [data[data[Settings.clinical_group_name] == s][feature] for s in [1, 2, 3]]
                 stat, p = kruskal(*groups)
-                rows.append({"Feature": feature, "stat": stat, "p_value": p})
+                rows.append({"Feature": feature, "importance": stat, "p_value": p})
+
             results[csv_name] = pd.DataFrame(rows)
         return results
 
@@ -221,17 +234,9 @@ class RandomForestHelper:
     def feature_importance(self):
         self.feature_importance_df = pd.DataFrame({
             "Feature": self.features.columns,
-            "Importance": self.model.feature_importances_
-        }).sort_values("Importance", ascending=False)
+            "importance": self.model.feature_importances_
+        }).sort_values("importance", ascending=False)
         return self.feature_importance_df
-
-    @staticmethod
-    def select_features_by_knee(feature_importance_df: pd.DataFrame) -> tuple[KneeLocator, float | None, list[str], np.ndarray]:
-        importance = np.sort(feature_importance_df['Importance'].values)[::-1]
-        knee = KneeLocator(np.arange(1, len(importance) + 1), importance, curve='convex', direction='decreasing')
-        threshold = importance[knee.knee] if knee.knee is not None else 0
-        best_features = feature_importance_df[feature_importance_df['Importance'] > threshold]['Feature'].tolist()
-        return knee, threshold, best_features, importance
 
 
 class RandomForest(Dataset):
@@ -254,11 +259,11 @@ class RandomForest(Dataset):
 
             rf_helper = RandomForestHelper(pd.DataFrame(features), labels)
             rf_helper.fit()
-            selected_features = rf_helper.select_features_by_knee(rf_helper.feature_importance())[2]
+            knee, threshold, selected_features, importance = ThresholdSelectionFeatures(rf_helper.feature_importance()).select_features_by_knee()
             result_dict[name] = selected_features
 
             if Settings.show_visualization: VisualizationManager.plot_rf_classification(
-                rf_helper.y_test, rf_helper.predict(), rf_helper.feature_importance(), name)
+                rf_helper.y_test, rf_helper.predict(), knee, importance, threshold, name)
         return result_dict
 
     def regression(self, significant: bool = False) -> dict[str, list]:
@@ -280,11 +285,11 @@ class RandomForest(Dataset):
 
             rf_helper = RandomForestHelper(pd.DataFrame(features), labels, task="regression")
             rf_helper.fit()
-            selected_features = rf_helper.select_features_by_knee(rf_helper.feature_importance())[2]
+            knee, threshold, selected_features, importance = ThresholdSelectionFeatures(rf_helper.feature_importance()).select_features_by_knee()
             result_dict[name] = selected_features
 
             if Settings.show_visualization: VisualizationManager.plot_rf_regression(
-                rf_helper.y_test, rf_helper.predict(), rf_helper.feature_importance(), name)
+                rf_helper.y_test, rf_helper.predict(), knee, importance, threshold, name)
         return result_dict
 
 
@@ -296,7 +301,7 @@ class Settings:
     clinical_group_name: str | None = 'Stage'
 
     image_name: str | None = None
-    show_visualization: bool = False
+    show_visualization: bool = True
 
 if __name__ == "__main__":
     pass
