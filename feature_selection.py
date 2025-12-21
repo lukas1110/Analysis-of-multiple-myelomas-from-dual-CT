@@ -1,21 +1,19 @@
-import re
 import os
-import glob
 import numpy as np
 import pandas as pd
-from kneed import KneeLocator
+
 from abc import ABC, abstractmethod
+
 # from sklearn.linear_model import Lasso
 # from feature_engine.selection import MRMR
-from scipy.stats import spearmanr, kruskal
-from collections import defaultdict
+
 # from collections import Counter
 # from mrmr import mrmr_classif, mrmr_regression
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
 from visualization_manager import VisualizationManager
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
+
+
+
+
 
 
 class DatasetHelper:
@@ -25,33 +23,40 @@ class DatasetHelper:
 
     @staticmethod
     def _all_csv() -> list[str]:
+        import glob
         return glob.glob(os.path.join(Settings.base_dir_path, "*", "*spine_lesions*.csv"))
 
     @staticmethod
     def _extract_feature_group(feature_name: str) -> str:
+        import re
         patterns = [
             r"^gradient_firstorder", r"^gradient_glcm", r"^gradient_glrlm",
             r"^gradient_glszm", r"^gradient_gldm", r"^gradient_ngtdm",
             r"^original_firstorder", r"^original_glcm", r"^original_glrlm",
             r"^original_glszm", r"^original_gldm", r"^original_ngtdm",
             r"^shape"]
+
         for p in patterns:
             if re.match(p, feature_name):
                 return p.replace("^", "")
         return "other"
 
+    def _categorical_df(self) -> pd.DataFrame:
+        pd.set_option('future.no_silent_downcasting', True)
+
+        df = self._read_clinical()
+        df = df.dropna(subset=[Settings.clinical_group_name])
+
+        unique_values = sorted(df[Settings.clinical_group_name].unique())
+        mapping = {val: idx + 1 for idx, val in enumerate(unique_values)}
+
+        df['Category'] = df[Settings.clinical_group_name].map(mapping).astype(int)
+        return df
+
 
 class Dataset(DatasetHelper):
     def __init__(self) -> None:
-        self.clinical_df = self._add_stage()
-
-    def _add_stage(self) -> pd.DataFrame:
-        pd.set_option('future.no_silent_downcasting', True)
-        df = self._read_clinical()
-        df['Stage'] = df['ISS classification'].replace({'Stage 1': 1, 'Stage 2': 2, 'Stage 3': 3})
-        df = df.dropna(subset=['Stage'])
-        df['Stage'] = df['Stage'].astype(int)
-        return df
+        self.clinical_df = self._categorical_df()
 
     @staticmethod
     def _numeric_features(df: pd.DataFrame) -> list[str]:
@@ -62,12 +67,14 @@ class Dataset(DatasetHelper):
         return df.loc[df['p_value'] < 0.05, 'Feature'].tolist()
 
     def _standardize(self, df: pd.DataFrame) -> pd.DataFrame:
+        from sklearn.preprocessing import StandardScaler
         scaler = StandardScaler()
+
         return pd.DataFrame(scaler.fit_transform(df[self._numeric_features(df)]),
-                            columns=self._numeric_features(df),
-                            index=df.index)
+                                                 columns=self._numeric_features(df), index=df.index)
 
     def _merged_csvs(self) -> dict[str, pd.DataFrame]:
+        from collections import defaultdict
         csv_dict = defaultdict(list)
         for f in self._all_csv():
             csv_dict[os.path.basename(f)].append(f)
@@ -90,6 +97,7 @@ class ThresholdSelectionFeatures:
         self.importance = importance
 
     def select_features_by_knee(self) -> tuple:
+        from kneed import KneeLocator
         importance = np.sort(np.abs(self.importance['importance'].values))[::-1]
 
         knee = KneeLocator(
@@ -112,26 +120,45 @@ class StatisticHelper(Dataset, ABC):
 
     def best_features_by_stat(self) -> dict[str, list]:
         statistic_csv = self.statistic if Settings.image_name is None else {Settings.image_name: self.statistic[Settings.image_name]}
+
         result_dict = {}
         for csv_name, df in statistic_csv.items():
             knee, threshold, selected_features, importance = ThresholdSelectionFeatures(df).select_features_by_knee()
             result_dict[csv_name] = selected_features
-            if Settings.show_visualization: VisualizationManager.plot_stat_selection(knee, importance, threshold, csv_name)
+            if Settings.show_visualization:
+                VisualizationManager.plot_stat_selection(knee, importance, threshold, csv_name)
+
         return result_dict
 
     def best_feature_from_group(self) -> dict[str, list]:
         statistic_csv = self.statistic if Settings.image_name is None else {Settings.image_name: self.statistic[Settings.image_name]}
-        merged_df = pd.concat([
-            df[df['Feature'].isin(self._significant_features(df))][['Feature', 'p_value']]
-            .rename(columns={'p_value': name})
-            for name, df in statistic_csv.items()]).groupby('Feature', as_index=False).first()
 
+        dfs = []
+        for image_name, df in statistic_csv.items():
+            sig_features = self._significant_features(df)
+
+            tmp = df.loc[df['Feature'].isin(sig_features), ['Feature', 'p_value']].copy()
+            tmp.rename(columns={'p_value': image_name}, inplace=True)
+            dfs.append(tmp)
+
+        merged_df = (pd.concat(dfs).groupby('Feature', as_index=False).first())
         merged_df['Group'] = merged_df['Feature'].apply(self._extract_feature_group)
         image_columns = [c for c in merged_df.columns if c not in ["Feature", "Group"]]
 
-        return {image: [group_df.loc[group_df[image].idxmin(), 'Feature']
-                        for _, group_df in merged_df.groupby('Group')
-                        if group_df[image].notna().any()] for image in image_columns}
+        result = {}
+        for image in image_columns:
+            selected = []
+
+            for _, group_df in merged_df.groupby('Group'):
+                valid = group_df.dropna(subset=[image])
+                if valid.empty:
+                    continue
+
+                best_feature = valid.loc[valid[image].idxmin(), 'Feature']
+                selected.append(best_feature)
+            result[image] = selected
+
+        return result
 
     def relevant_features_by_corr(self, threshold: float = 0.75) -> dict[str, list]:
         merged_csv = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
@@ -159,7 +186,9 @@ class StatisticHelper(Dataset, ABC):
                 remaining_features.remove(to_remove)
 
             result_dict[csv_name] = remaining_features
-            if Settings.show_visualization: VisualizationManager.plot_filtered_features(merged_df, sig_features, remaining_features, csv_name)
+            if Settings.show_visualization:
+                VisualizationManager.plot_filtered_features(merged_df, sig_features, remaining_features, csv_name)
+
         return result_dict
 
 
@@ -169,7 +198,9 @@ class Spearman(StatisticHelper):
         return self._spearman_dfs()
 
     def _spearman_dfs(self) -> dict[str, pd.DataFrame]:
+        from scipy.stats import spearmanr
         result = {}
+
         for csv_name, df in self._merged_csvs().items():
             stats = []
             for col in self._numeric_features(df):
@@ -190,12 +221,15 @@ class KruskalWallis(StatisticHelper):
         return self._kw_dfs()
 
     def _kw_dfs(self) -> dict[str, pd.DataFrame]:
+        from scipy.stats import kruskal
         results = {}
+
         for csv_name, df in self._merged_csvs().items():
             rows = []
             for feature in self._numeric_features(df):
                 data = pd.concat([df[feature], self.clinical_df[Settings.clinical_group_name]], axis=1).dropna()
                 groups = [data[data[Settings.clinical_group_name] == s][feature] for s in [1, 2, 3]]
+
                 stat, p = kruskal(*groups)
                 rows.append({"Feature": feature, "importance": stat, "p_value": p})
 
@@ -217,11 +251,13 @@ class RandomForestHelper:
         self.feature_importance_df = None
 
     def split(self):
+        from sklearn.model_selection import train_test_split
         self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(
             self.features, self.labels, test_size=self.test_size,
             stratify=self.labels if self.task == "classification" else None, random_state=42)
 
     def fit(self):
+        from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
         self.split()
         if self.task == "classification":
             self.model = RandomForestClassifier(n_estimators=self.n_trees, random_state=42)
@@ -237,6 +273,7 @@ class RandomForestHelper:
             "Feature": self.features.columns,
             "importance": self.model.feature_importances_
         }).sort_values("importance", ascending=False)
+
         return self.feature_importance_df
 
 
@@ -263,8 +300,9 @@ class RandomForest(Dataset):
             knee, threshold, selected_features, importance = ThresholdSelectionFeatures(rf_helper.feature_importance()).select_features_by_knee()
             result_dict[name] = selected_features
 
-            if Settings.show_visualization: VisualizationManager.plot_rf_classification(
-                rf_helper.y_test, rf_helper.predict(), knee, importance, threshold, name)
+            if Settings.show_visualization:
+                VisualizationManager.plot_rf_classification(rf_helper.y_test, rf_helper.predict(), knee, importance, threshold, name)
+
         return result_dict
 
     def regression(self, significant: bool = False) -> dict[str, list]:
@@ -289,13 +327,15 @@ class RandomForest(Dataset):
             knee, threshold, selected_features, importance = ThresholdSelectionFeatures(rf_helper.feature_importance()).select_features_by_knee()
             result_dict[name] = selected_features
 
-            if Settings.show_visualization: VisualizationManager.plot_rf_regression(
-                rf_helper.y_test, rf_helper.predict(), knee, importance, threshold, name)
+            if Settings.show_visualization:
+                VisualizationManager.plot_rf_regression(rf_helper.y_test, rf_helper.predict(), knee, importance, threshold, name)
+
         return result_dict
 
 
 class MutualInformation(Dataset):
     def classification(self) -> dict[str, list]:
+        from sklearn.feature_selection import mutual_info_classif
         merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
         labels = self.clinical_df[Settings.clinical_group_name]
 
@@ -313,10 +353,13 @@ class MutualInformation(Dataset):
             knee, threshold, selected, importance = ThresholdSelectionFeatures(mi_df).select_features_by_knee()
 
             result_dict[name] = selected
-            if Settings.show_visualization: VisualizationManager.plot_mutual_information(knee, importance, threshold, name)
+            if Settings.show_visualization:
+                VisualizationManager.plot_mutual_information(knee, importance, threshold, name)
+
         return result_dict
 
     def regression(self) -> dict[str, list]:
+        from sklearn.feature_selection import mutual_info_regression
         merged = self._merged_csvs() if Settings.image_name is None else {
             Settings.image_name: self._merged_csvs()[Settings.image_name]}
         labels = self.clinical_df[Settings.clinical_biomarker_name]
@@ -335,8 +378,18 @@ class MutualInformation(Dataset):
             knee, threshold, selected, importance = ThresholdSelectionFeatures(mi_df).select_features_by_knee()
 
             result_dict[name] = selected
-            if Settings.show_visualization: VisualizationManager.plot_mutual_information(knee, importance, threshold, name)
+            if Settings.show_visualization:
+                VisualizationManager.plot_mutual_information(knee, importance, threshold, name)
+
         return result_dict
+
+
+class MRMR:
+    def classification(self) -> dict[str, list]:
+        pass
+
+    def regression(self) -> dict[str, list]:
+        pass
 
 
 class Settings:
@@ -344,7 +397,7 @@ class Settings:
     clinical_path: str = r"D:\Clinical_data\Table_clinical_data.csv"
 
     clinical_biomarker_name: str | None = 'Beta2 microglobulin (mg/l)'
-    clinical_group_name: str | None = 'Stage'
+    clinical_group_name: str | None = 'ISS classification'
 
     image_name: str | None = None
     show_visualization: bool = False

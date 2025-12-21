@@ -621,7 +621,7 @@ def random_forest_regressor_significant_selected_features(merged_csv, spearman_c
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+### DONE ###
 def mutual_information_selected_features(merged_csv, clinical_path, clinical_column_name='Beta2 microglobulin (mg/l)',
                                 image_name=None, plot=False) -> dict[str, list]:
     clinical_df = add_stage_in_clinical_df(clinical_path)
@@ -672,7 +672,7 @@ def mutual_information_selected_features(merged_csv, clinical_path, clinical_col
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+### LATER ###
 def lasso_regression_selected_features(merged_csv, clinical_path, clinical_column_name='Beta2 microglobulin (mg/l)',
                                        alpha=0.01, image_name=None, plot=False) -> dict[str, list]:
     clinical_df = pd.read_csv(clinical_path, encoding="cp1252")
@@ -739,7 +739,7 @@ def lasso_regression_selected_features(merged_csv, clinical_path, clinical_colum
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+### LATER ###
 def lasso_regression_significant_selected_features(merged_csv, spearman_csv, clinical_path,
                                                    clinical_column_name='Beta2 microglobulin (mg/l)',
                                                    alpha=0.01, image_name=None, plot=False) -> dict[str, list]:
@@ -809,7 +809,7 @@ def lasso_regression_significant_selected_features(merged_csv, spearman_csv, cli
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+# TODO
 def mrmr_classification_selected_features(merged_csv, clinical_path, n_top_features=20,
                                           plot=False, image_name=None) -> dict[str, list]:
     clinical_df = add_stage_in_clinical_df(clinical_path)
@@ -845,7 +845,7 @@ def mrmr_classification_selected_features(merged_csv, clinical_path, n_top_featu
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+# TODO:
 def mrmr_classification_significant_selected_features(merged_csv, kruskal_wallis_csv, clinical_path,
                                                       n_top_features=20, plot=False, image_name=None) -> dict[str, list]:
     clinical_df = add_stage_in_clinical_df(clinical_path)
@@ -883,7 +883,7 @@ def mrmr_classification_significant_selected_features(merged_csv, kruskal_wallis
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+# TODO:
 def mrmr_fe_classification_selected_features(merged_csv, clinical_path, n_top_features=20,
                                              plot=False, image_name=None) -> dict[str, list]:
     clinical_df = add_stage_in_clinical_df(clinical_path)
@@ -919,7 +919,7 @@ def mrmr_fe_classification_selected_features(merged_csv, clinical_path, n_top_fe
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+# TODO:
 def mrmr_fe_classification_significant_selected_features(merged_csv, kruskal_wallis_csv, clinical_path,
                                                          n_top_features=20, plot=False, image_name=None) -> dict[str, list]:
     clinical_df = add_stage_in_clinical_df(clinical_path)
@@ -957,7 +957,7 @@ def mrmr_fe_classification_significant_selected_features(merged_csv, kruskal_wal
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+# TODO:
 def mrmr_regression_selected_features(merged_csv, clinical_path, clinical_column_name='Beta2 microglobulin (mg/l)',
                                       n_top_features=20, plot=False, image_name=None) -> dict[str, list]:
     clinical_df = pd.read_csv(clinical_path, encoding="cp1252")
@@ -994,7 +994,7 @@ def mrmr_regression_selected_features(merged_csv, clinical_path, clinical_column
         result_dict[csv_name] = selected_features
     return result_dict
 
-
+# TODO:
 def mrmr_regression_significant_selected_features(merged_csv, spearman_csv, clinical_path,
                                                   clinical_column_name='Beta2 microglobulin (mg/l)',
                                                   n_top_features=20, plot=False, image_name=None) -> dict[str, list]:
