@@ -7,9 +7,6 @@ from sklearn.metrics import confusion_matrix, r2_score, mean_squared_error, mean
 
 
 class VisualizationManager:
-    # TODO: Visualization of LASSO
-    # TODO: Visualization of MRMR
-
     @staticmethod
     def plot_stat_selection(knee: KneeLocator, importance: np.ndarray, threshold: float, name: str) -> None:
         plt.figure(figsize=(10, 6))
@@ -120,5 +117,16 @@ class VisualizationManager:
         plt.grid(True, linestyle='--', alpha=0.6)
 
         plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+    @staticmethod
+    def plot_mrmr(standardized_df: pd.DataFrame, selected_features: list[str], name: str):
+        selected_df = standardized_df[selected_features]
+        corr_matrix = selected_df.corr(method='spearman')
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(corr_matrix, cmap='coolwarm', vmin=-1, vmax=1, annot=False)
+        plt.title(f"Spearman correlation between MRMR features for {name}")
+
         plt.tight_layout()
         plt.show()

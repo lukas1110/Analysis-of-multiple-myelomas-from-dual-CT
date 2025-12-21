@@ -1,18 +1,9 @@
 import os
 import numpy as np
 import pandas as pd
-
 from abc import ABC, abstractmethod
-
-# from sklearn.linear_model import Lasso
-# from feature_engine.selection import MRMR
-
-# from collections import Counter
-# from mrmr import mrmr_classif, mrmr_regression
 from visualization_manager import VisualizationManager
-
-
-
+# from collections import Counter
 
 
 
@@ -227,8 +218,9 @@ class KruskalWallis(StatisticHelper):
         for csv_name, df in self._merged_csvs().items():
             rows = []
             for feature in self._numeric_features(df):
-                data = pd.concat([df[feature], self.clinical_df[Settings.clinical_group_name]], axis=1).dropna()
-                groups = [data[data[Settings.clinical_group_name] == s][feature] for s in [1, 2, 3]]
+                data = pd.concat([df[feature], self.clinical_df["Category"]], axis=1).dropna()
+                categories = np.sort(data["Category"].dropna().unique())
+                groups = [data[data["Category"] == c][feature] for c in categories]
 
                 stat, p = kruskal(*groups)
                 rows.append({"Feature": feature, "importance": stat, "p_value": p})
@@ -283,7 +275,7 @@ class RandomForest(Dataset):
         merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
         statistic = KruskalWallis().statistic
         statistic = statistic if Settings.image_name is None else {Settings.image_name: statistic[Settings.image_name]}
-        labels = self.clinical_df[Settings.clinical_group_name]
+        labels = self.clinical_df["Category"]
 
         result_dict = {}
         for name, df in merged.items():
@@ -337,7 +329,7 @@ class MutualInformation(Dataset):
     def classification(self) -> dict[str, list]:
         from sklearn.feature_selection import mutual_info_classif
         merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
-        labels = self.clinical_df[Settings.clinical_group_name]
+        labels = self.clinical_df["Category"]
 
         result_dict = {}
         for name, df in merged.items():
@@ -360,8 +352,7 @@ class MutualInformation(Dataset):
 
     def regression(self) -> dict[str, list]:
         from sklearn.feature_selection import mutual_info_regression
-        merged = self._merged_csvs() if Settings.image_name is None else {
-            Settings.image_name: self._merged_csvs()[Settings.image_name]}
+        merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
         labels = self.clinical_df[Settings.clinical_biomarker_name]
 
         result_dict = {}
@@ -384,17 +375,101 @@ class MutualInformation(Dataset):
         return result_dict
 
 
-class MRMR:
-    def classification(self) -> dict[str, list]:
-        pass
+class MRMR(Dataset):
+    def classification_type1(self, significant: bool = False, n_top_features: int = 10) -> dict[str, list]:
+        from mrmr import mrmr_classif
+        merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
+        statistic = KruskalWallis().statistic
+        statistic = statistic if Settings.image_name is None else {Settings.image_name: statistic[Settings.image_name]}
 
-    def regression(self) -> dict[str, list]:
-        pass
+        result_dict = {}
+        for name, df in merged.items():
+            temp_df = pd.merge(df, self.clinical_df[['Patient ID', 'Category']],
+                               left_on='patient', right_on='Patient ID', how='inner')
+
+            if significant and name in statistic:
+                features = temp_df[self._significant_features(statistic[name])]
+            else:
+                features = temp_df[self._numeric_features(df)].drop(columns=['Category'], errors='ignore')
+            labels = temp_df['Category']
+
+            valid_idx = features.notna().all(axis=1) & labels.notna()
+            features, labels = features[valid_idx], labels[valid_idx]
+
+            df_mrmr = self._standardize(features).copy()
+            df_mrmr['Category'] = labels.values
+            selected_features = mrmr_classif(X=df_mrmr.drop(columns='Category'), y=df_mrmr['Category'], K=n_top_features)
+
+            if Settings.show_visualization:
+                VisualizationManager.plot_mrmr(self._standardize(features), selected_features, name)
+
+            result_dict[name] = selected_features
+        return result_dict
+
+    def classification_type2(self, significant: bool = False, n_top_features: int = 10) -> dict[str, list]:
+        from feature_engine.selection import MRMR
+        merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
+        statistic = KruskalWallis().statistic
+        statistic = statistic if Settings.image_name is None else {Settings.image_name: statistic[Settings.image_name]}
+
+        result_dict = {}
+        for name, df in merged.items():
+            temp_df = pd.merge(df, self.clinical_df[['Patient ID', 'Category']],
+                               left_on='patient', right_on='Patient ID', how='inner')
+
+            if significant and name in statistic:
+                features = temp_df[self._significant_features(statistic[name])]
+            else:
+                features = temp_df[self._numeric_features(df)].drop(columns=['Category'], errors='ignore')
+            labels = temp_df['Category']
+
+            valid_idx = features.notna().all(axis=1) & labels.notna()
+            features, labels = features[valid_idx], labels[valid_idx]
+
+            selector = MRMR(method='MIQ', max_features=n_top_features)
+            selector.fit(self._standardize(features), labels)
+            selected_features = selector.transform(self._standardize(features)).columns.tolist()
+
+            if Settings.show_visualization:
+                VisualizationManager.plot_mrmr(self._standardize(features), selected_features, name)
+
+            result_dict[name] = selected_features
+        return result_dict
+
+    def regression(self, significant: bool = False, n_top_features: int = 10) -> dict[str, list]:
+        from mrmr import mrmr_regression
+        merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
+        statistic = Spearman().statistic
+        statistic = statistic if Settings.image_name is None else {Settings.image_name: statistic[Settings.image_name]}
+
+        result_dict = {}
+        for name, df in merged.items():
+            temp_df = pd.merge(df, self.clinical_df[['Patient ID', Settings.clinical_biomarker_name]],
+                               left_on='patient', right_on='Patient ID', how='inner')
+
+            if significant and name in statistic:
+                features = temp_df[self._significant_features(statistic[name])]
+            else:
+                features = temp_df[self._numeric_features(df)].drop(columns=[Settings.clinical_biomarker_name], errors='ignore')
+            labels = temp_df[Settings.clinical_biomarker_name]
+
+            valid_idx = features.notna().all(axis=1) & labels.notna()
+            features, labels = features[valid_idx], labels[valid_idx]
+
+            df_mrmr = self._standardize(features).copy()
+            df_mrmr[Settings.clinical_biomarker_name] = labels.values
+            selected_features = mrmr_regression(X=df_mrmr.drop(columns=Settings.clinical_biomarker_name), y=df_mrmr[Settings.clinical_biomarker_name], K=n_top_features)
+
+            if Settings.show_visualization:
+                VisualizationManager.plot_mrmr(self._standardize(features), selected_features, name)
+
+            result_dict[name] = selected_features
+        return result_dict
 
 
 class Settings:
-    base_dir_path: str = r"D:\DATA_Myelomy"
-    clinical_path: str = r"D:\Clinical_data\Table_clinical_data.csv"
+    base_dir_path: str = r"G:\DATA_Myelomy"
+    clinical_path: str = r"G:\Clinical_data\Table_clinical_data.csv"
 
     clinical_biomarker_name: str | None = 'Beta2 microglobulin (mg/l)'
     clinical_group_name: str | None = 'ISS classification'
@@ -403,6 +478,4 @@ class Settings:
     show_visualization: bool = False
 
 if __name__ == "__main__":
-    m = MutualInformation()
-    print(m.classification())
-    print(m.regression())
+    mrmr = MRMR()
