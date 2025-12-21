@@ -55,18 +55,19 @@ class Dataset(DatasetHelper):
 
     @staticmethod
     def _significant_features(df: pd.DataFrame) -> list[str]:
-        return df.loc[df['p_value'] < 0.05, 'Feature'].tolist()
+        return list(df.loc[df['p_value'] < 0.05, 'Feature'].values)
 
     def _standardize(self, df: pd.DataFrame) -> pd.DataFrame:
         from sklearn.preprocessing import StandardScaler
         scaler = StandardScaler()
 
-        return pd.DataFrame(scaler.fit_transform(df[self._numeric_features(df)]),
-                                                 columns=self._numeric_features(df), index=df.index)
+        num_features = self._numeric_features(df)
+        return pd.DataFrame(scaler.fit_transform(df[num_features]), columns=num_features, index=df.index)
 
     def _merged_csvs(self) -> dict[str, pd.DataFrame]:
         from collections import defaultdict
         csv_dict = defaultdict(list)
+
         for f in self._all_csv():
             csv_dict[os.path.basename(f)].append(f)
 
@@ -98,7 +99,7 @@ class ThresholdSelectionFeatures:
             direction='decreasing')
 
         threshold = importance[knee.knee] if knee.knee is not None else 0
-        best_features = self.importance.loc[self.importance['importance'].abs() > threshold, 'Feature'].tolist()
+        best_features = list(self.importance.loc[self.importance['importance'].abs() > threshold, 'Feature'])
 
         return knee, threshold, best_features, importance
 
@@ -110,19 +111,26 @@ class StatisticHelper(Dataset, ABC):
         pass
 
     def best_features_by_stat(self) -> dict[str, list]:
-        statistic_csv = self.statistic if Settings.image_name is None else {Settings.image_name: self.statistic[Settings.image_name]}
+        if Settings.image_name is None:
+            statistic_csv = self.statistic
+        else:
+            statistic_csv = {Settings.image_name: self.statistic[Settings.image_name]}
 
         result_dict = {}
         for csv_name, df in statistic_csv.items():
             knee, threshold, selected_features, importance = ThresholdSelectionFeatures(df).select_features_by_knee()
             result_dict[csv_name] = selected_features
+
             if Settings.show_visualization:
                 VisualizationManager.plot_stat_selection(knee, importance, threshold, csv_name)
 
         return result_dict
 
     def best_feature_from_group(self) -> dict[str, list]:
-        statistic_csv = self.statistic if Settings.image_name is None else {Settings.image_name: self.statistic[Settings.image_name]}
+        if Settings.image_name is None:
+            statistic_csv = self.statistic
+        else:
+            statistic_csv = {Settings.image_name: self.statistic[Settings.image_name]}
 
         dfs = []
         for image_name, df in statistic_csv.items():
@@ -139,7 +147,6 @@ class StatisticHelper(Dataset, ABC):
         result = {}
         for image in image_columns:
             selected = []
-
             for _, group_df in merged_df.groupby('Group'):
                 valid = group_df.dropna(subset=[image])
                 if valid.empty:
@@ -148,12 +155,15 @@ class StatisticHelper(Dataset, ABC):
                 best_feature = valid.loc[valid[image].idxmin(), 'Feature']
                 selected.append(best_feature)
             result[image] = selected
-
         return result
 
-    def relevant_features_by_corr(self, threshold: float = 0.75) -> dict[str, list]:
-        merged_csv = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
-        statistic_csv = self.statistic if Settings.image_name is None else {Settings.image_name: self.statistic[Settings.image_name]}
+    def relevant_features_by_corr(self, threshold: float=0.75) -> dict[str, list]:
+        if Settings.image_name is None:
+            merged_csv = self._merged_csvs()
+            statistic_csv = self.statistic
+        else:
+            merged_csv = {Settings.image_name: self._merged_csvs()[Settings.image_name]}
+            statistic_csv = {Settings.image_name: self.statistic[Settings.image_name]}
 
         result_dict = {}
         for csv_name, (merged_df, stat_df) in zip(merged_csv.keys(), zip(merged_csv.values(), statistic_csv.values())):
@@ -169,7 +179,7 @@ class StatisticHelper(Dataset, ABC):
 
                 idx = np.unravel_index(np.argmax(corr_matrix.values), corr_matrix.shape)
                 row_idx, col_idx = map(int, idx)
-                feat1, feat2 = corr_matrix.columns[row_idx], corr_matrix.columns[col_idx]
+                feat1, feat2 = str(corr_matrix.columns[row_idx]), str(corr_matrix.columns[col_idx])
 
                 stat1 = stat_df.loc[stat_df['Feature'] == feat1, 'importance'].values[0]
                 stat2 = stat_df.loc[stat_df['Feature'] == feat2, 'importance'].values[0]
@@ -231,7 +241,7 @@ class KruskalWallis(StatisticHelper):
 
 class RandomForestHelper:
     def __init__(self, features: pd.DataFrame, labels: pd.Series, task: str = "classification",
-                 n_trees: int = 200, test_size: float = 0.2) -> None:
+                 n_trees: int=200, test_size: float=0.2) -> None:
         self.features = features
         self.labels = labels
         self.task = task
@@ -270,11 +280,13 @@ class RandomForestHelper:
 
 
 class RandomForest(Dataset):
-    def classification(self, significant: bool = False) -> dict[str, list]:
-
-        merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
+    def classification(self, significant: bool=False) -> dict[str, list]:
+        merged = self._merged_csvs()
         statistic = KruskalWallis().statistic
-        statistic = statistic if Settings.image_name is None else {Settings.image_name: statistic[Settings.image_name]}
+
+        if Settings.image_name:
+            merged = {Settings.image_name: merged[Settings.image_name]}
+            statistic = {Settings.image_name: statistic[Settings.image_name]}
         labels = self.clinical_df["Category"]
 
         result_dict = {}
@@ -289,6 +301,7 @@ class RandomForest(Dataset):
 
             rf_helper = RandomForestHelper(pd.DataFrame(features), labels)
             rf_helper.fit()
+
             knee, threshold, selected_features, importance = ThresholdSelectionFeatures(rf_helper.feature_importance()).select_features_by_knee()
             result_dict[name] = selected_features
 
@@ -297,11 +310,13 @@ class RandomForest(Dataset):
 
         return result_dict
 
-    def regression(self, significant: bool = False) -> dict[str, list]:
-
-        merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
+    def regression(self, significant: bool=False) -> dict[str, list]:
+        merged = self._merged_csvs()
         statistic = Spearman().statistic
-        statistic = statistic if Settings.image_name is None else {Settings.image_name: statistic[Settings.image_name]}
+
+        if Settings.image_name:
+            merged = {Settings.image_name: merged[Settings.image_name]}
+            statistic = {Settings.image_name: statistic[Settings.image_name]}
         labels = self.clinical_df[Settings.clinical_biomarker_name]
 
         result_dict = {}
@@ -316,6 +331,7 @@ class RandomForest(Dataset):
 
             rf_helper = RandomForestHelper(pd.DataFrame(features), labels, task="regression")
             rf_helper.fit()
+
             knee, threshold, selected_features, importance = ThresholdSelectionFeatures(rf_helper.feature_importance()).select_features_by_knee()
             result_dict[name] = selected_features
 
@@ -328,7 +344,10 @@ class RandomForest(Dataset):
 class MutualInformation(Dataset):
     def classification(self) -> dict[str, list]:
         from sklearn.feature_selection import mutual_info_classif
-        merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
+        if Settings.image_name is None:
+            merged = self._merged_csvs()
+        else:
+            merged = {Settings.image_name: self._merged_csvs()[Settings.image_name]}
         labels = self.clinical_df["Category"]
 
         result_dict = {}
@@ -343,8 +362,8 @@ class MutualInformation(Dataset):
 
             mi_df = pd.DataFrame(mutual_info_list).sort_values("importance", ascending=False)
             knee, threshold, selected, importance = ThresholdSelectionFeatures(mi_df).select_features_by_knee()
-
             result_dict[name] = selected
+
             if Settings.show_visualization:
                 VisualizationManager.plot_mutual_information(knee, importance, threshold, name)
 
@@ -352,7 +371,10 @@ class MutualInformation(Dataset):
 
     def regression(self) -> dict[str, list]:
         from sklearn.feature_selection import mutual_info_regression
-        merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
+        if Settings.image_name is None:
+            merged = self._merged_csvs()
+        else:
+            merged = {Settings.image_name: self._merged_csvs()[Settings.image_name]}
         labels = self.clinical_df[Settings.clinical_biomarker_name]
 
         result_dict = {}
@@ -367,8 +389,8 @@ class MutualInformation(Dataset):
 
             mi_df = pd.DataFrame(mutual_info_list).sort_values("importance", ascending=False)
             knee, threshold, selected, importance = ThresholdSelectionFeatures(mi_df).select_features_by_knee()
-
             result_dict[name] = selected
+
             if Settings.show_visualization:
                 VisualizationManager.plot_mutual_information(knee, importance, threshold, name)
 
@@ -376,11 +398,14 @@ class MutualInformation(Dataset):
 
 
 class MRMR(Dataset):
-    def classification_type1(self, significant: bool = False, n_top_features: int = 10) -> dict[str, list]:
+    def classification_type1(self, significant: bool=False, n_top_features: int=10) -> dict[str, list]:
         from mrmr import mrmr_classif
-        merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
+        merged = self._merged_csvs()
         statistic = KruskalWallis().statistic
-        statistic = statistic if Settings.image_name is None else {Settings.image_name: statistic[Settings.image_name]}
+
+        if Settings.image_name:
+            merged = {Settings.image_name: merged[Settings.image_name]}
+            statistic = {Settings.image_name: statistic[Settings.image_name]}
 
         result_dict = {}
         for name, df in merged.items():
@@ -406,11 +431,14 @@ class MRMR(Dataset):
             result_dict[name] = selected_features
         return result_dict
 
-    def classification_type2(self, significant: bool = False, n_top_features: int = 10) -> dict[str, list]:
+    def classification_type2(self, significant: bool=False, n_top_features: int=10) -> dict[str, list]:
         from feature_engine.selection import MRMR
-        merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
+        merged = self._merged_csvs()
         statistic = KruskalWallis().statistic
-        statistic = statistic if Settings.image_name is None else {Settings.image_name: statistic[Settings.image_name]}
+
+        if Settings.image_name:
+            merged = {Settings.image_name: merged[Settings.image_name]}
+            statistic = {Settings.image_name: statistic[Settings.image_name]}
 
         result_dict = {}
         for name, df in merged.items():
@@ -436,11 +464,14 @@ class MRMR(Dataset):
             result_dict[name] = selected_features
         return result_dict
 
-    def regression(self, significant: bool = False, n_top_features: int = 10) -> dict[str, list]:
+    def regression(self, significant: bool=False, n_top_features: int=10) -> dict[str, list]:
         from mrmr import mrmr_regression
-        merged = self._merged_csvs() if Settings.image_name is None else {Settings.image_name: self._merged_csvs()[Settings.image_name]}
+        merged = self._merged_csvs()
         statistic = Spearman().statistic
-        statistic = statistic if Settings.image_name is None else {Settings.image_name: statistic[Settings.image_name]}
+
+        if Settings.image_name:
+            merged = {Settings.image_name: merged[Settings.image_name]}
+            statistic = {Settings.image_name: statistic[Settings.image_name]}
 
         result_dict = {}
         for name, df in merged.items():
@@ -465,6 +496,10 @@ class MRMR(Dataset):
 
             result_dict[name] = selected_features
         return result_dict
+
+
+class FeatureSelection:
+    pass
 
 
 class Settings:
