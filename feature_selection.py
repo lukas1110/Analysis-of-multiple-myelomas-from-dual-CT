@@ -3,8 +3,18 @@ import numpy as np
 import pandas as pd
 from abc import ABC, abstractmethod
 from visualization_manager import VisualizationManager
-# from collections import Counter
 
+
+
+class Settings:
+    base_dir_path: str = r"G:\DATA_Myelomy"
+    clinical_path: str = r"G:\Clinical_data\Table_clinical_data.csv"
+
+    clinical_biomarker_name: str | None = 'Beta2 microglobulin (mg/l)'    # 'Creatinine level (µmol/l)'    # 'Serum M-protein quantity (g/l)'
+    clinical_group_name: str | None = 'ISS classification'
+
+    image_name: str | None = None
+    show_visualization: bool = False
 
 
 class DatasetHelper:
@@ -240,7 +250,7 @@ class KruskalWallis(StatisticHelper):
 
 
 class RandomForestHelper:
-    def __init__(self, features: pd.DataFrame, labels: pd.Series, task: str = "classification",
+    def __init__(self, features: pd.DataFrame, labels: pd.Series, task: str="classification",
                  n_trees: int=200, test_size: float=0.2) -> None:
         self.features = features
         self.labels = labels
@@ -398,7 +408,7 @@ class MutualInformation(Dataset):
 
 
 class MRMR(Dataset):
-    def classification_type1(self, significant: bool=False, n_top_features: int=10) -> dict[str, list]:
+    def classification_type1(self, significant: bool=False, n_top_features: int=20) -> dict[str, list]:
         from mrmr import mrmr_classif
         merged = self._merged_csvs()
         statistic = KruskalWallis().statistic
@@ -431,7 +441,7 @@ class MRMR(Dataset):
             result_dict[name] = selected_features
         return result_dict
 
-    def classification_type2(self, significant: bool=False, n_top_features: int=10) -> dict[str, list]:
+    def classification_type2(self, significant: bool=False, n_top_features: int=20) -> dict[str, list]:
         from feature_engine.selection import MRMR
         merged = self._merged_csvs()
         statistic = KruskalWallis().statistic
@@ -464,7 +474,7 @@ class MRMR(Dataset):
             result_dict[name] = selected_features
         return result_dict
 
-    def regression(self, significant: bool=False, n_top_features: int=10) -> dict[str, list]:
+    def regression(self, significant: bool=False, n_top_features: int=20) -> dict[str, list]:
         from mrmr import mrmr_regression
         merged = self._merged_csvs()
         statistic = Spearman().statistic
@@ -499,18 +509,78 @@ class MRMR(Dataset):
 
 
 class FeatureSelection:
-    pass
+    # With correlated image features (NOT MRMR)
+    selected_spearman = Spearman().best_features_by_stat()
+    selected_kw = KruskalWallis().best_features_by_stat()
+
+    # best_one_group_spearman = Spearman().best_feature_from_group()
+    # best_one_group_kw = KruskalWallis().best_feature_from_group()
+
+    mi_classification = MutualInformation().classification()
+    mi_regression = MutualInformation().regression()
+
+    rf_classification_all = RandomForest().classification()
+    rf_classification_significant = RandomForest().classification(significant=True)
+
+    rf_regression_all = RandomForest().regression()
+    rf_regression_significant = RandomForest().regression(significant=True)
+
+    # Without correlated image features (MRMR)
+    filtered_spearman = Spearman().relevant_features_by_corr()
+    filtered_kw = KruskalWallis().relevant_features_by_corr()
+
+    mrmr_classification_1_all = MRMR().classification_type1()
+    mrmr_classification_2_all = MRMR().classification_type2()
+
+    mrmr_classification_1_significant = MRMR().classification_type1(significant=True)
+    mrmr_classification_2_significant = MRMR().classification_type2(significant=True)
+
+    mrmr_regression_all = MRMR().regression()
+    mrmr_regression_significant = MRMR().regression(significant=True)
 
 
-class Settings:
-    base_dir_path: str = r"G:\DATA_Myelomy"
-    clinical_path: str = r"G:\Clinical_data\Table_clinical_data.csv"
+    all_dicts = [
+                 selected_kw,
+                 selected_spearman,
+                 rf_classification_all, rf_classification_significant,
+                 rf_regression_significant, rf_regression_all,
+                 mi_classification,
+                 mi_regression,
+                 filtered_spearman,
+                 filtered_kw,
+                 mrmr_classification_1_all, mrmr_classification_1_significant,
+                 mrmr_classification_2_all, mrmr_classification_2_significant,
+                 mrmr_regression_all, mrmr_regression_significant,
+                ]
 
-    clinical_biomarker_name: str | None = 'Beta2 microglobulin (mg/l)'
-    clinical_group_name: str | None = 'ISS classification'
+    @staticmethod
+    def _print_count_tables(tables: dict[str, pd.DataFrame]) -> None:
+        for name, df in tables.items():
+            print(f"\n-------------------------------------{name}-----------------------------------------")
+            print(df[df["Count"] > 1])
 
-    image_name: str | None = None
-    show_visualization: bool = False
+    def count_tables(self) -> None:
+        from collections import Counter
+        dataset_names = self.all_dicts[0].keys()
+        result = {ds: Counter() for ds in dataset_names}
+
+        for d in self.all_dicts:
+            for dataset_name, feature_list in d.items():
+                result[dataset_name].update(feature_list)
+
+        tables = {}
+        for dataset_name, counter in result.items():
+            df = pd.DataFrame(counter.items(), columns=["Feature", "Count"])
+            df = df.sort_values("Count", ascending=False).reset_index(drop=True)
+
+            total = len(self.all_dicts)
+            df["Ratio"] = df["Count"].astype(str) + "/" + str(total)
+            df["Ratio[%]"] = round((df["Count"] / total) * 100, 1)
+            tables[dataset_name] = df
+
+        self._print_count_tables(tables)
+
+
 
 if __name__ == "__main__":
-    mrmr = MRMR()
+    FeatureSelection().count_tables()
