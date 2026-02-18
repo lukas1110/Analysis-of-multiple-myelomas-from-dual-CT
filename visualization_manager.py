@@ -73,6 +73,36 @@ class VisualizationManager:
         plt.show()
 
     @staticmethod
+    def plot_lasso_regression(labels, predictions, knee, importance, threshold, name: str):
+        r2 = r2_score(labels, predictions)
+        mse = mean_squared_error(labels, predictions)
+        mae = mean_absolute_error(labels, predictions)
+
+        fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+        fig.suptitle(f"Lasso Regression for {name} R²: {r2:.3f} || MSE: {mse:.3f} || MAE: {mae:.3f}",
+                     fontsize=16, fontweight='bold')
+
+        axes[0].scatter(labels, predictions, alpha=0.7)
+        axes[0].plot([labels.min(), labels.max()], [labels.min(), labels.max()], 'r--', lw=2)
+        axes[0].set_xlabel("True values")
+        axes[0].set_ylabel("Predicted values")
+        axes[0].set_title("True vs Predicted")
+
+        axes[1].plot(np.arange(1, len(importance) + 1), importance, marker='o',
+                     color='tab:blue', label='Feature importance')
+        axes[1].axhline(y=threshold, color='red', linestyle='--', label=f'Elbow threshold = {threshold:.4f}')
+        if knee.knee is not None:
+            axes[1].axvline(x=knee.knee, color='orange', linestyle=':', label=f'Elbow at feature {knee.knee}')
+        axes[1].set_xlabel("Feature rank")
+        axes[1].set_ylabel("Importance")
+        axes[1].set_title("Feature Importance Curve")
+        axes[1].grid(True, linestyle='--', alpha=0.5)
+        axes[1].legend()
+
+        plt.tight_layout()
+        plt.show()
+
+    @staticmethod
     def plot_rf_regression(labels, predictions, knee, importance, threshold, name: str):
         r2 = r2_score(labels, predictions)
         mse = mean_squared_error(labels, predictions)

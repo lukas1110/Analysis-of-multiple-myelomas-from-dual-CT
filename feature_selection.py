@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from visualization_manager import VisualizationManager
 
 
-
 class Settings:
     base_dir_path: str = r"G:\DATA_Myelomy"
     clinical_path: str = r"G:\Clinical_data\Table_clinical_data.csv"
@@ -249,6 +248,87 @@ class KruskalWallis(StatisticHelper):
         return results
 
 
+class LassoHelper:
+    def __init__(self, features: pd.DataFrame, labels: pd.Series,
+                 alpha: float = 0.01, test_size: float = 0.2) -> None:
+        self.features = features
+        self.labels = labels
+        self.alpha = alpha
+        self.test_size = test_size
+
+        self.x_train = self.x_test = None
+        self.y_train = self.y_test = None
+        self.x_train_scaled = self.x_test_scaled = None
+
+        self.model = None
+        self.scaler = None
+
+    def split(self) -> None:
+        from sklearn.model_selection import train_test_split
+        self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(
+            self.features, self.labels, test_size=self.test_size, random_state=42)
+
+    def fit(self) -> None:
+        from sklearn.linear_model import Lasso
+        from sklearn.preprocessing import StandardScaler
+
+        self.split()
+        self.scaler = StandardScaler()
+
+        self.x_train_scaled = pd.DataFrame(self.scaler.fit_transform(self.x_train),
+                                           columns=self.x_train.columns, index=self.x_train.index)
+
+        self.x_test_scaled = pd.DataFrame(self.scaler.transform(self.x_test),
+                                          columns=self.x_test.columns, index=self.x_test.index)
+
+        self.model = Lasso(alpha=self.alpha, random_state=42)
+        self.model.fit(self.x_train_scaled, self.y_train)
+
+    def predict(self):
+        return self.model.predict(self.x_test_scaled)
+
+    def feature_importance(self) -> pd.DataFrame:
+        return (pd.DataFrame({
+                "Feature": self.x_train.columns,
+                "importance": self.model.coef_})
+            .assign(importance=lambda df: df["importance"].abs())
+            .sort_values("importance", ascending=False)
+            .reset_index(drop=True))
+
+
+class Lasso(Dataset):
+    def regression(self, significant: bool = False) -> dict[str, list]:
+        merged = self._merged_csvs()
+        statistic = Spearman().statistic
+
+        if Settings.image_name:
+            merged = {Settings.image_name: merged[Settings.image_name]}
+            statistic = {Settings.image_name: statistic[Settings.image_name]}
+
+        labels = self.clinical_df[Settings.clinical_biomarker_name]
+
+        result_dict = {}
+        for name, df in merged.items():
+            if significant and name in statistic:
+                features = df[self._significant_features(statistic[name])]
+            else:
+                features = df[self._numeric_features(df)]
+
+            valid_idx = features.notna().all(axis=1) & labels.notna()
+            features, labels_ = features[valid_idx], labels[valid_idx]
+
+            lasso_helper = LassoHelper(features, labels_, alpha=0.01)
+            lasso_helper.fit()
+
+            knee, threshold, selected_features, importance = (ThresholdSelectionFeatures(lasso_helper.feature_importance()).select_features_by_knee())
+            result_dict[name] = selected_features
+
+            if Settings.show_visualization:
+                VisualizationManager.plot_lasso_regression(lasso_helper.y_test, lasso_helper.predict(), knee, importance, threshold, name)
+
+        return result_dict
+
+
 class RandomForestHelper:
     def __init__(self, features: pd.DataFrame, labels: pd.Series, task: str="classification",
                  n_trees: int=200, test_size: float=0.2) -> None:
@@ -262,13 +342,13 @@ class RandomForestHelper:
         self.model = None
         self.feature_importance_df = None
 
-    def split(self):
+    def split(self) -> None:
         from sklearn.model_selection import train_test_split
         self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(
             self.features, self.labels, test_size=self.test_size,
             stratify=self.labels if self.task == "classification" else None, random_state=42)
 
-    def fit(self):
+    def fit(self) -> None:
         from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
         self.split()
         if self.task == "classification":
@@ -280,7 +360,7 @@ class RandomForestHelper:
     def predict(self):
         return self.model.predict(self.x_test)
 
-    def feature_importance(self):
+    def feature_importance(self) -> pd.DataFrame:
         self.feature_importance_df = pd.DataFrame({
             "Feature": self.features.columns,
             "importance": self.model.feature_importances_
@@ -509,7 +589,7 @@ class MRMR(Dataset):
 
 
 class FeatureSelection:
-    # With correlated image features (NOT MRMR)
+    # WITH CORRELATED IMAGE FEATURES (NOR MRMR)
     selected_spearman = Spearman().best_features_by_stat()
     selected_kw = KruskalWallis().best_features_by_stat()
 
@@ -525,7 +605,10 @@ class FeatureSelection:
     rf_regression_all = RandomForest().regression()
     rf_regression_significant = RandomForest().regression(significant=True)
 
-    # Without correlated image features (MRMR)
+    lasso_regression_all = Lasso().regression()
+    lasso_regression_significant = Lasso().regression(significant=True)
+
+    # WITHOUT CORRELATED IMAGE FEATURES (MRMR)
     filtered_spearman = Spearman().relevant_features_by_corr()
     filtered_kw = KruskalWallis().relevant_features_by_corr()
 
@@ -540,14 +623,12 @@ class FeatureSelection:
 
 
     all_dicts = [
-                 selected_kw,
-                 selected_spearman,
+                 selected_kw, selected_spearman,
                  rf_classification_all, rf_classification_significant,
-                 rf_regression_significant, rf_regression_all,
-                 mi_classification,
-                 mi_regression,
-                 filtered_spearman,
-                 filtered_kw,
+                 rf_regression_all, rf_regression_significant,
+                 lasso_regression_all, lasso_regression_significant,
+                 mi_classification, mi_regression,
+                 filtered_spearman, filtered_kw,
                  mrmr_classification_1_all, mrmr_classification_1_significant,
                  mrmr_classification_2_all, mrmr_classification_2_significant,
                  mrmr_regression_all, mrmr_regression_significant,
@@ -579,7 +660,6 @@ class FeatureSelection:
             tables[dataset_name] = df
 
         self._print_count_tables(tables)
-
 
 
 if __name__ == "__main__":
