@@ -155,9 +155,11 @@ class RadiomicsFeatures:
     def extract_radiomics_vertebrae_features(self, csv_name: str=None, path_to_save: str=None):
         """
         Extract radiomics features for each vertebra separately.
+
         For each vertebra:
             - Healthy part (no lesions)
             - Lesions within that vertebra (if any)
+
         Produces:
             - radiomics_vertebrae_features.csv
             - radiomics_lesions_features.csv

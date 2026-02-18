@@ -31,7 +31,7 @@ class AllPatientsData:
         returns: str: Clean image name.
         """
         image_name = Path(path).with_suffix("").with_suffix("").name
-        if image_name.lower().startswith("myel_"):
+        if image_name.lower().startswith("myel_"):  # OR followup
             # Remove 'myel_XXX_' prefix
             return "_".join(image_name.split("_")[2:])
         return image_name
@@ -100,22 +100,20 @@ class AllPatientsData:
             # if os.path.exists(os.path.join(os.path.dirname(image_path), image_name + "_radiomics_spine_vertebrae_features.csv")):
             #     print(f"CSV {image_name} for spine already exists, skipping features extraction.")
             # else:
-            #     print("\t\t-> Spine level")
+            #     print("--> Spine level")
             #     radiomics_features.extract_radiomics_spine_features(csv_name=image_name, path_to_save=path_to_save)
 
             # if os.path.exists(os.path.join(os.path.dirname(image_path), image_name + "_radiomics_vertebrae_features.csv")):
             #     print(f"CSV {image_name} for vertebrae already exists, skipping features extraction.")
             # else:
-            #     print("\t\t-> Vertebra level")
+            #     print("--> Vertebra level")
             #     radiomics_features.extract_radiomics_vertebrae_features(csv_name=image_name, path_to_save=path_to_save)
 
             if os.path.exists(os.path.join(os.path.dirname(image_path), image_name + "_radiomics_individual_lesion_features.csv")):
                 print(f"CSV {image_name} for individual lesions already exists, skipping features extraction.")
             else:
-                print("\t\t-> Lesions level")
+                print("--> Lesions level")
                 radiomics_features.extract_radiomics_individual_lesion_features(csv_name=image_name, path_to_save=path_to_save)
-
-
 
     def process_all_patients(self):
         """
