@@ -1,6 +1,8 @@
 import os
+
 import SimpleITK as Sitk
 from pathlib import Path
+
 from radiomics_features import RadiomicsFeatures
 
 
@@ -97,17 +99,17 @@ class AllPatientsData:
             # Extract features and save them to csv
             radiomics_features = RadiomicsFeatures(ct_img, vertebrae_img, lesions_img)
 
-            # if os.path.exists(os.path.join(os.path.dirname(image_path), image_name + "_radiomics_spine_vertebrae_features.csv")):
-            #     print(f"CSV {image_name} for spine already exists, skipping features extraction.")
-            # else:
-            #     print("--> Spine level")
-            #     radiomics_features.extract_radiomics_spine_features(csv_name=image_name, path_to_save=path_to_save)
+            if os.path.exists(os.path.join(os.path.dirname(image_path), image_name + "_radiomics_spine_vertebrae_features.csv")):
+                print(f"CSV {image_name} for spine already exists, skipping features extraction.")
+            else:
+                print("--> Spine level")
+                radiomics_features.extract_radiomics_spine_features(csv_name=image_name, path_to_save=path_to_save)
 
-            # if os.path.exists(os.path.join(os.path.dirname(image_path), image_name + "_radiomics_vertebrae_features.csv")):
-            #     print(f"CSV {image_name} for vertebrae already exists, skipping features extraction.")
-            # else:
-            #     print("--> Vertebra level")
-            #     radiomics_features.extract_radiomics_vertebrae_features(csv_name=image_name, path_to_save=path_to_save)
+            if os.path.exists(os.path.join(os.path.dirname(image_path), image_name + "_radiomics_vertebrae_features.csv")):
+                print(f"CSV {image_name} for vertebrae already exists, skipping features extraction.")
+            else:
+                print("--> Vertebra level")
+                radiomics_features.extract_radiomics_vertebrae_features(csv_name=image_name, path_to_save=path_to_save)
 
             if os.path.exists(os.path.join(os.path.dirname(image_path), image_name + "_radiomics_individual_lesion_features.csv")):
                 print(f"CSV {image_name} for individual lesions already exists, skipping features extraction.")
@@ -137,5 +139,4 @@ class AllPatientsData:
 
 
 data_folder_path = r"G:\DATA_Myelomy"
-# data_folder_path = r"C:\Users\Lukas\OneDrive - VUT\Plocha\Diploma thesis"
 AllPatientsData(data_folder_path).process_all_patients()
