@@ -1,5 +1,7 @@
 import os
 import SimpleITK as sitk
+import nibabel as nib
+from scipy import ndimage
 
 
 def dicom_to_nifti(dicom_folder, output_folder):
@@ -44,3 +46,22 @@ def dicom_to_nifti(dicom_folder, output_folder):
 #
 # print(main_folder)
 # print_folder_tree(main_folder)
+
+
+def label_segmentation_mask(input_file, output_file):
+    # load
+    nii = nib.load(input_file)
+    mask = nii.get_fdata() > 0
+
+    # label objects
+    labels, N = ndimage.label(mask)
+
+    print("objects:", N)
+
+    # save
+    out = nib.Nifti1Image(labels.astype("int32"), nii.affine, nii.header)
+    nib.save(out, output_file)
+
+input_path = r"E:\DATA_FollowUp\Myel_FollowUp_008_4\Myel_FollowUp_008_4_lesions_seg.nii.gz"
+
+label_segmentation_mask(input_path, input_path)

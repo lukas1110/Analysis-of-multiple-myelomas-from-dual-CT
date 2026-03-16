@@ -33,7 +33,7 @@ class AllPatientsData:
         returns: str: Clean image name.
         """
         image_name = Path(path).with_suffix("").with_suffix("").name
-        if image_name.lower().startswith("myel_"):  # OR followup
+        if image_name.lower().startswith("Myel_FollowUp_"):
             # Remove 'myel_XXX_' prefix
             return "_".join(image_name.split("_")[2:])
         return image_name
@@ -89,7 +89,7 @@ class AllPatientsData:
         for image_path in image_files_path:
             # Extract image name
             image_name = self._extract_image_name(image_path)
-            print(f"\t--> {image_name}")
+            print(f"{image_name}")
 
             # Load images to Sitk objects
             ct_img = Sitk.ReadImage(image_path)
@@ -102,19 +102,19 @@ class AllPatientsData:
             if os.path.exists(os.path.join(os.path.dirname(image_path), image_name + "_radiomics_spine_vertebrae_features.csv")):
                 print(f"CSV {image_name} for spine already exists, skipping features extraction.")
             else:
-                print("--> Spine level")
+                print("Spine level")
                 radiomics_features.extract_radiomics_spine_features(csv_name=image_name, path_to_save=path_to_save)
 
             if os.path.exists(os.path.join(os.path.dirname(image_path), image_name + "_radiomics_vertebrae_features.csv")):
                 print(f"CSV {image_name} for vertebrae already exists, skipping features extraction.")
             else:
-                print("--> Vertebra level")
+                print("Vertebra level")
                 radiomics_features.extract_radiomics_vertebrae_features(csv_name=image_name, path_to_save=path_to_save)
 
             if os.path.exists(os.path.join(os.path.dirname(image_path), image_name + "_radiomics_individual_lesion_features.csv")):
                 print(f"CSV {image_name} for individual lesions already exists, skipping features extraction.")
             else:
-                print("--> Lesions level")
+                print("Lesions level")
                 radiomics_features.extract_radiomics_individual_lesion_features(csv_name=image_name, path_to_save=path_to_save)
 
     def process_all_patients(self):
@@ -138,5 +138,5 @@ class AllPatientsData:
             self._create_dataset(image_files_path, mask_files_path, path_to_save=myel_path)
 
 
-data_folder_path = r"G:\DATA_Myelomy"
+data_folder_path = r"E:\DATA_FollowUp"
 AllPatientsData(data_folder_path).process_all_patients()
