@@ -138,5 +138,6 @@ class AllPatientsData:
             self._create_dataset(image_files_path, mask_files_path, path_to_save=myel_path)
 
 
-data_folder_path = r"E:\DATA_FollowUp"
-AllPatientsData(data_folder_path).process_all_patients()
+if __name__ == "__main__":
+    data_folder_path = r"E:\DATA_FollowUp"
+    AllPatientsData(data_folder_path).process_all_patients()
