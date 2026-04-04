@@ -139,6 +139,6 @@ class ExtractPatientsData:
 
 
 if __name__ == "__main__":
-    data_folder_path = r"E:\DATA_Healthy_and_Myelom\DATA_Healthy"
-    folder_names = "Healthy_"
+    data_folder_path = r"E:\DATA_Healthy_and_Myelom\DATA_MM_Stage3"
+    folder_names = "Myel_"
     ExtractPatientsData(data_folder_path, folder_names).process_all_patients()
