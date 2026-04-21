@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 
 # ----------------------------------------------------PATHS TO FILES----------------------------------------------------
-# image_path = r"C:\Users\lukas\OneDrive - VUT\Plocha\Diploma thesis\Myel_001\myel_001_monoe_120kev.nii.gz"
+image_path = r"E:\DATA_Healthy_and_Myelom\DATA_Healthy\Healthy_001\healthy_001_konv.nii.gz"
 # vertebrae_mask_path = r"E:\DATA_Myelomy\Myel_043\myel_043_spine_seg.nii.gz"
 # lesions_mask_path = r"E:\DATA_Myelomy\Myel_043\Myel_043_lesions_seg.nii.gz"
 
@@ -16,7 +16,7 @@ import numpy as np
 
 
 # ----------------------------------------------------NIBABEL OBJECTS---------------------------------------------------
-# ct_img = NiftiFile(image_path)
+ct_img = NiftiFile(image_path)
 # vertebrae_img = NiftiFile(vertebrae_mask_path)
 # lesions_img = NiftiFile(lesions_mask_path)
 
@@ -30,7 +30,7 @@ import numpy as np
 
 
 # ----------------------------------------------CONVERT NIBABEL TO NUMPY ARRAY------------------------------------------
-# ct_image_data = ct_img.get_image_data()
+ct_image_data = ct_img.get_image_data()
 # vertebrae_image_data = vertebrae_img.get_image_data()
 # lesions_image_data = lesions_img.get_image_data()
 
@@ -73,12 +73,14 @@ import numpy as np
 
 
 # ----------------------------------------------------VISUALIZATION----------------------------------------------------
-# z_min, z_max = 450, 500
-# y_min, y_max = 250, 300
-# x_min, x_max = 150, 200
-#
-# mask = np.zeros_like(ct_image_data, dtype=np.uint8)
-# mask[x_min:x_max, y_min:y_max, z_min:z_max] = 1
+z_min, z_max = 10, 40
+y_min, y_max = 250, 280
+x_min, x_max = 100, 250
+
+mask = np.zeros_like(ct_image_data, dtype=np.uint8)
+mask[x_min:x_max, y_min:y_max, z_min:z_max] = 1
+
+print(np.std(ct_image_data[mask==1], ddof=1))
 
 # show_individual_slices(ct_image_data)
 # show_slices_scroll(ct_image_data, axis=0, pause_time=0.01)
