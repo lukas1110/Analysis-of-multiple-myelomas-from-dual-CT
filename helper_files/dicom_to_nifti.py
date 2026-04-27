@@ -67,5 +67,5 @@ from scipy import ndimage
 # label_segmentation_mask(input_path, input_path)
 
 
-# img = sitk.ReadImage(r"E:\DATA_Healthy_and_Myelom\DATA_MM_Stage1\Myel_003\myel_003_konv_fat_segment.nrrd")
-# sitk.WriteImage(img, r"E:\DATA_Healthy_and_Myelom\DATA_MM_Stage1\Myel_003\myel_003_konv_fat_segment.nii.gz")
+# img = sitk.ReadImage(r"E:\DATA_Healthy_and_Myelom\DATA_MM_Stage1\Myel_003\myel_003_konv_muscle_segment.nrrd")
+# sitk.WriteImage(img, r"E:\DATA_Healthy_and_Myelom\DATA_MM_Stage1\Myel_003\myel_003_konv_muscle_segment.nii.gz")
